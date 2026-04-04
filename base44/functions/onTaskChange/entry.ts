@@ -21,7 +21,6 @@ Deno.serve(async (req) => {
 
     // --- TASK CREATED ---
     if (type === 'create') {
-      // Create history record for creation
       await base44.asServiceRole.entities.TaskHistory.create({
         task_id: entity_id,
         changed_by_email: changedBy,
@@ -31,7 +30,6 @@ Deno.serve(async (req) => {
         change_type: 'created',
       });
 
-      // Notify assigned user
       if (data.assigned_to_email && data.assigned_to_email !== changedBy) {
         await base44.asServiceRole.entities.Notification.create({
           recipient_email: data.assigned_to_email,
@@ -42,9 +40,14 @@ Deno.serve(async (req) => {
           entity_id: entity_id,
           triggered_by_email: changedBy,
         });
+
+        await base44.asServiceRole.integrations.Core.SendEmail({
+          to: data.assigned_to_email,
+          subject: `📋 New Task Assigned: "${data.title}"`,
+          body: `Hi,\n\nYou have been assigned to a new task by ${changedBy}:\n\nTask:     ${data.title}\nPriority: ${data.priority || 'medium'}\nStatus:   ${data.status?.replace('_', ' ')}\n${data.due_date ? `Due Date: ${new Date(data.due_date).toDateString()}` : ''}\n\nLog in to Task Management Hub to view the task.\n\n—Task Management Hub`,
+        });
       }
 
-      // Audit log
       await base44.asServiceRole.entities.AuditLog.create({
         action: 'create',
         entity_type: 'Task',
@@ -54,7 +57,6 @@ Deno.serve(async (req) => {
         changes: JSON.stringify(data),
       });
 
-      // Update overdue flag
       if (data.due_date && new Date(data.due_date) < new Date() && data.status !== 'done' && data.status !== 'cancelled') {
         await base44.asServiceRole.entities.Task.update(entity_id, { is_overdue: true });
       }
@@ -67,7 +69,6 @@ Deno.serve(async (req) => {
       const historyRecords = [];
       const notifications = [];
 
-      // Track changes for monitored fields
       for (const [field, changeType] of Object.entries(TRACKED_FIELDS)) {
         const oldVal = old_data[field];
         const newVal = data[field];
@@ -83,12 +84,11 @@ Deno.serve(async (req) => {
         }
       }
 
-      // Create all history records
       if (historyRecords.length > 0) {
         await base44.asServiceRole.entities.TaskHistory.bulkCreate(historyRecords);
       }
 
-      // Notification: task reassigned
+      // Notification + email: task reassigned
       if (old_data.assigned_to_email !== data.assigned_to_email && data.assigned_to_email) {
         if (data.assigned_to_email !== changedBy) {
           notifications.push({
@@ -100,8 +100,12 @@ Deno.serve(async (req) => {
             entity_id: entity_id,
             triggered_by_email: changedBy,
           });
+          await base44.asServiceRole.integrations.Core.SendEmail({
+            to: data.assigned_to_email,
+            subject: `📋 Task Assigned: "${data.title}"`,
+            body: `Hi,\n\nYou have been assigned to the following task by ${changedBy}:\n\nTask:     ${data.title}\nPriority: ${data.priority || 'medium'}\nStatus:   ${data.status?.replace('_', ' ')}\n${data.due_date ? `Due Date: ${new Date(data.due_date).toDateString()}` : ''}\n\nLog in to Task Management Hub to view the task.\n\n—Task Management Hub`,
+          });
         }
-        // Notify the old assignee
         if (old_data.assigned_to_email && old_data.assigned_to_email !== changedBy) {
           notifications.push({
             recipient_email: old_data.assigned_to_email,
@@ -112,10 +116,15 @@ Deno.serve(async (req) => {
             entity_id: entity_id,
             triggered_by_email: changedBy,
           });
+          await base44.asServiceRole.integrations.Core.SendEmail({
+            to: old_data.assigned_to_email,
+            subject: `🔄 Task Reassigned: "${data.title}"`,
+            body: `Hi,\n\nThe following task has been reassigned away from you by ${changedBy}:\n\nTask: ${data.title}\n\nLog in to Task Management Hub for more details.\n\n—Task Management Hub`,
+          });
         }
       }
 
-      // Notification: status changed
+      // Notification + email: status changed
       if (old_data.status !== data.status && data.assigned_to_email && data.assigned_to_email !== changedBy) {
         notifications.push({
           recipient_email: data.assigned_to_email,
@@ -126,9 +135,13 @@ Deno.serve(async (req) => {
           entity_id: entity_id,
           triggered_by_email: changedBy,
         });
+        await base44.asServiceRole.integrations.Core.SendEmail({
+          to: data.assigned_to_email,
+          subject: `🔔 Task Status Updated: "${data.title}"`,
+          body: `Hi,\n\n${changedBy} updated the status of a task assigned to you:\n\nTask:       ${data.title}\nOld Status: ${old_data.status?.replace('_', ' ')}\nNew Status: ${data.status?.replace('_', ' ')}\n\nLog in to Task Management Hub to view the task.\n\n—Task Management Hub`,
+        });
       }
 
-      // Create all notifications
       if (notifications.length > 0) {
         await base44.asServiceRole.entities.Notification.bulkCreate(notifications);
       }
@@ -138,7 +151,6 @@ Deno.serve(async (req) => {
       if (data.is_overdue !== isOverdue) {
         await base44.asServiceRole.entities.Task.update(entity_id, { is_overdue: isOverdue });
 
-        // Notify if newly overdue
         if (isOverdue && data.assigned_to_email) {
           await base44.asServiceRole.entities.Notification.create({
             recipient_email: data.assigned_to_email,
@@ -149,10 +161,14 @@ Deno.serve(async (req) => {
             entity_id: entity_id,
             triggered_by_email: 'system',
           });
+          await base44.asServiceRole.integrations.Core.SendEmail({
+            to: data.assigned_to_email,
+            subject: `⚠️ Task Overdue: "${data.title}"`,
+            body: `Hi,\n\nThe following task is now overdue:\n\nTask:     ${data.title}\nDue Date: ${new Date(data.due_date).toDateString()}\nStatus:   ${data.status?.replace('_', ' ')}\n\nPlease update the task or contact your manager.\n\n—Task Management Hub`,
+          });
         }
       }
 
-      // Audit log
       const changes = {};
       if (changed_fields) {
         for (const field of changed_fields) {
