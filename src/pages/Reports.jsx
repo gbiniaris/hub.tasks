@@ -59,12 +59,18 @@ export default function Reports() {
       base44.entities.Task.list('-created_date', 1000),
       base44.entities.Project.list('-updated_date', 100),
       base44.entities.Team.list('-updated_date', 50),
-      base44.entities.User.list('-created_date', 100),
+      base44.entities.User.list('-created_date', 100).catch(() => []),
     ]).then(([t, p, tm, u]) => {
       setTasks(t);
       setProjects(p);
       setTeams(tm);
-      setUsers(u);
+      // If User list failed (403), derive unique users from tasks
+      if (u.length === 0) {
+        const emailSet = [...new Set(t.map(x => x.assigned_to_email).filter(Boolean))];
+        setUsers(emailSet.map(email => ({ id: email, email, full_name: email.split('@')[0] })));
+      } else {
+        setUsers(u);
+      }
       setLoading(false);
     });
   }, []);
