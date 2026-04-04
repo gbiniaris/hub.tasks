@@ -1,0 +1,33 @@
+{
+  "name": "Team",
+  "type": "object",
+  "properties": {
+    "name": {
+      "type": "string",
+      "description": "Team name"
+    },
+    "description": {
+      "type": "string",
+      "description": "Team description"
+    },
+    "manager_email": {
+      "type": "string",
+      "description": "Email of the team manager (User reference)"
+    },
+    "status": {
+      "type": "string",
+      "enum": [
+        "active",
+        "archived"
+      ],
+      "default": "active"
+    },
+    "department": {
+      "type": "string",
+      "description": "Department this team belongs to"
+    }
+  },
+  "required": [
+    "name"
+  ]
+}

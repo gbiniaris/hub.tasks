@@ -1,0 +1,28 @@
+{
+  "name": "TaskType",
+  "type": "object",
+  "properties": {
+    "name": {
+      "type": "string",
+      "description": "Type name (e.g. Bug, Feature, Improvement)"
+    },
+    "icon": {
+      "type": "string",
+      "description": "Icon identifier for UI"
+    },
+    "color": {
+      "type": "string",
+      "description": "Color for UI display (hex)"
+    },
+    "description": {
+      "type": "string"
+    },
+    "is_active": {
+      "type": "boolean",
+      "default": true
+    }
+  },
+  "required": [
+    "name"
+  ]
+}

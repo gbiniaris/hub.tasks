@@ -1,0 +1,38 @@
+{
+  "name": "TaskComment",
+  "type": "object",
+  "properties": {
+    "task_id": {
+      "type": "string",
+      "description": "Reference to Task"
+    },
+    "author_email": {
+      "type": "string",
+      "description": "Email of comment author"
+    },
+    "content": {
+      "type": "string",
+      "description": "Comment body (supports markdown)"
+    },
+    "parent_comment_id": {
+      "type": "string",
+      "description": "For threaded comments"
+    },
+    "is_edited": {
+      "type": "boolean",
+      "default": false
+    },
+    "mentions": {
+      "type": "array",
+      "items": {
+        "type": "string"
+      },
+      "description": "Emails of mentioned users"
+    }
+  },
+  "required": [
+    "task_id",
+    "author_email",
+    "content"
+  ]
+}

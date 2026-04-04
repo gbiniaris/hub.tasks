@@ -1,0 +1,41 @@
+{
+  "name": "TeamMembership",
+  "type": "object",
+  "properties": {
+    "team_id": {
+      "type": "string",
+      "description": "Reference to Team"
+    },
+    "user_email": {
+      "type": "string",
+      "description": "Email of the team member (User reference)"
+    },
+    "role_in_team": {
+      "type": "string",
+      "enum": [
+        "manager",
+        "lead",
+        "member"
+      ],
+      "default": "member",
+      "description": "Role within this team"
+    },
+    "joined_date": {
+      "type": "string",
+      "format": "date-time",
+      "description": "When the user joined this team"
+    },
+    "status": {
+      "type": "string",
+      "enum": [
+        "active",
+        "inactive"
+      ],
+      "default": "active"
+    }
+  },
+  "required": [
+    "team_id",
+    "user_email"
+  ]
+}

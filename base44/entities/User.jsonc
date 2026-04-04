@@ -1,0 +1,50 @@
+{
+  "name": "User",
+  "type": "object",
+  "properties": {
+    "role": {
+      "type": "string",
+      "enum": [
+        "super_admin",
+        "admin",
+        "project_manager",
+        "team_manager",
+        "team_lead",
+        "contributor",
+        "viewer"
+      ],
+      "default": "contributor",
+      "description": "Primary system role"
+    },
+    "department": {
+      "type": "string",
+      "description": "Department the user belongs to"
+    },
+    "job_title": {
+      "type": "string",
+      "description": "User's job title"
+    },
+    "phone": {
+      "type": "string",
+      "description": "Contact phone number"
+    },
+    "avatar_url": {
+      "type": "string",
+      "description": "Profile picture URL"
+    },
+    "status": {
+      "type": "string",
+      "enum": [
+        "active",
+        "inactive",
+        "suspended"
+      ],
+      "default": "active"
+    },
+    "last_login": {
+      "type": "string",
+      "format": "date-time",
+      "description": "Last login timestamp"
+    }
+  }
+}

@@ -1,0 +1,36 @@
+{
+  "name": "TaskAttachment",
+  "type": "object",
+  "properties": {
+    "task_id": {
+      "type": "string",
+      "description": "Reference to Task"
+    },
+    "file_url": {
+      "type": "string",
+      "description": "URL to the uploaded file"
+    },
+    "file_name": {
+      "type": "string",
+      "description": "Original filename"
+    },
+    "file_size": {
+      "type": "number",
+      "description": "File size in bytes"
+    },
+    "file_type": {
+      "type": "string",
+      "description": "MIME type"
+    },
+    "uploaded_by_email": {
+      "type": "string",
+      "description": "Email of uploader"
+    }
+  },
+  "required": [
+    "task_id",
+    "file_url",
+    "file_name",
+    "uploaded_by_email"
+  ]
+}

@@ -1,0 +1,58 @@
+{
+  "name": "Notification",
+  "type": "object",
+  "properties": {
+    "recipient_email": {
+      "type": "string",
+      "description": "Email of notification recipient"
+    },
+    "type": {
+      "type": "string",
+      "enum": [
+        "task_assigned",
+        "task_reassigned",
+        "task_overdue",
+        "comment_added",
+        "status_changed",
+        "mention",
+        "project_update",
+        "system"
+      ],
+      "description": "Notification type"
+    },
+    "title": {
+      "type": "string",
+      "description": "Notification title"
+    },
+    "message": {
+      "type": "string",
+      "description": "Notification body"
+    },
+    "entity_type": {
+      "type": "string",
+      "description": "Related entity type (e.g. Task, Project)"
+    },
+    "entity_id": {
+      "type": "string",
+      "description": "ID of related entity"
+    },
+    "is_read": {
+      "type": "boolean",
+      "default": false
+    },
+    "read_at": {
+      "type": "string",
+      "format": "date-time"
+    },
+    "triggered_by_email": {
+      "type": "string",
+      "description": "Email of user who triggered this notification"
+    }
+  },
+  "required": [
+    "recipient_email",
+    "type",
+    "title",
+    "message"
+  ]
+}

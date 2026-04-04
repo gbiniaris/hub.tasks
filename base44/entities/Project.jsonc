@@ -1,0 +1,84 @@
+{
+  "name": "Project",
+  "type": "object",
+  "properties": {
+    "name": {
+      "type": "string",
+      "description": "Project name"
+    },
+    "description": {
+      "type": "string",
+      "description": "Project description"
+    },
+    "project_manager_email": {
+      "type": "string",
+      "description": "Email of the project manager (User reference)"
+    },
+    "team_id": {
+      "type": "string",
+      "description": "Reference to primary Team"
+    },
+    "status": {
+      "type": "string",
+      "enum": [
+        "planning",
+        "active",
+        "on_hold",
+        "completed",
+        "cancelled"
+      ],
+      "default": "planning"
+    },
+    "priority": {
+      "type": "string",
+      "enum": [
+        "critical",
+        "high",
+        "medium",
+        "low"
+      ],
+      "default": "medium"
+    },
+    "start_date": {
+      "type": "string",
+      "format": "date-time",
+      "description": "Project start date"
+    },
+    "end_date": {
+      "type": "string",
+      "format": "date-time",
+      "description": "Target end date"
+    },
+    "budget": {
+      "type": "number",
+      "description": "Project budget"
+    },
+    "completion_percentage": {
+      "type": "number",
+      "default": 0,
+      "description": "Auto-calculated from tasks"
+    },
+    "health": {
+      "type": "string",
+      "enum": [
+        "on_track",
+        "at_risk",
+        "off_track",
+        "completed"
+      ],
+      "default": "on_track",
+      "description": "Auto-calculated project health"
+    },
+    "tags": {
+      "type": "array",
+      "items": {
+        "type": "string"
+      },
+      "description": "Project tags"
+    }
+  },
+  "required": [
+    "name",
+    "project_manager_email"
+  ]
+}

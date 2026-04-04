@@ -1,0 +1,32 @@
+{
+  "name": "Role",
+  "type": "object",
+  "properties": {
+    "name": {
+      "type": "string",
+      "description": "Role name"
+    },
+    "slug": {
+      "type": "string",
+      "description": "URL-friendly identifier (e.g. super_admin)"
+    },
+    "description": {
+      "type": "string",
+      "description": "What this role can do"
+    },
+    "level": {
+      "type": "number",
+      "description": "Hierarchy level (1=highest, 7=lowest)"
+    },
+    "is_system": {
+      "type": "boolean",
+      "default": false,
+      "description": "Whether this is a system-defined role that cannot be deleted"
+    }
+  },
+  "required": [
+    "name",
+    "slug",
+    "level"
+  ]
+}

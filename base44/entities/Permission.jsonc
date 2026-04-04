@@ -1,0 +1,45 @@
+{
+  "name": "Permission",
+  "type": "object",
+  "properties": {
+    "name": {
+      "type": "string",
+      "description": "Permission display name"
+    },
+    "slug": {
+      "type": "string",
+      "description": "Permission identifier (e.g. manage_users)"
+    },
+    "category": {
+      "type": "string",
+      "enum": [
+        "users",
+        "roles",
+        "projects",
+        "tasks",
+        "teams",
+        "reports",
+        "settings",
+        "audit"
+      ],
+      "description": "Permission category for grouping"
+    },
+    "description": {
+      "type": "string",
+      "description": "What this permission grants"
+    },
+    "actions": {
+      "type": "array",
+      "items": {
+        "type": "string"
+      },
+      "description": "Allowed CRUD actions: create, read, update, delete"
+    }
+  },
+  "required": [
+    "name",
+    "slug",
+    "category",
+    "actions"
+  ]
+}

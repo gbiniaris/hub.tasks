@@ -1,0 +1,43 @@
+{
+  "name": "TaskHistory",
+  "type": "object",
+  "properties": {
+    "task_id": {
+      "type": "string",
+      "description": "Reference to Task"
+    },
+    "changed_by_email": {
+      "type": "string",
+      "description": "Email of user who made the change"
+    },
+    "field_name": {
+      "type": "string",
+      "description": "Name of the field that changed"
+    },
+    "old_value": {
+      "type": "string",
+      "description": "Previous value (stringified)"
+    },
+    "new_value": {
+      "type": "string",
+      "description": "New value (stringified)"
+    },
+    "change_type": {
+      "type": "string",
+      "enum": [
+        "created",
+        "updated",
+        "status_change",
+        "reassigned",
+        "priority_change",
+        "due_date_change"
+      ],
+      "description": "Category of change"
+    }
+  },
+  "required": [
+    "task_id",
+    "changed_by_email",
+    "field_name"
+  ]
+}

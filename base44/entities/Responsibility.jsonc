@@ -1,0 +1,45 @@
+{
+  "name": "Responsibility",
+  "type": "object",
+  "properties": {
+    "name": {
+      "type": "string",
+      "description": "Responsibility name"
+    },
+    "description": {
+      "type": "string",
+      "description": "Detailed description of this responsibility"
+    },
+    "team_id": {
+      "type": "string",
+      "description": "Reference to owning Team"
+    },
+    "assigned_to_email": {
+      "type": "string",
+      "description": "Email of the user responsible"
+    },
+    "priority": {
+      "type": "string",
+      "enum": [
+        "critical",
+        "high",
+        "medium",
+        "low"
+      ],
+      "default": "medium"
+    },
+    "status": {
+      "type": "string",
+      "enum": [
+        "active",
+        "on_hold",
+        "completed",
+        "archived"
+      ],
+      "default": "active"
+    }
+  },
+  "required": [
+    "name"
+  ]
+}

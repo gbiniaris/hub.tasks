@@ -1,0 +1,28 @@
+{
+  "name": "TaskCollaborator",
+  "type": "object",
+  "properties": {
+    "task_id": {
+      "type": "string",
+      "description": "Reference to Task"
+    },
+    "user_email": {
+      "type": "string",
+      "description": "Email of collaborator"
+    },
+    "role": {
+      "type": "string",
+      "enum": [
+        "reviewer",
+        "contributor",
+        "watcher"
+      ],
+      "default": "contributor",
+      "description": "Collaborator's role on this task"
+    }
+  },
+  "required": [
+    "task_id",
+    "user_email"
+  ]
+}

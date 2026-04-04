@@ -1,0 +1,59 @@
+{
+  "name": "UserPreference",
+  "type": "object",
+  "properties": {
+    "user_email": {
+      "type": "string",
+      "description": "Email of the user"
+    },
+    "theme": {
+      "type": "string",
+      "enum": [
+        "light",
+        "dark",
+        "system"
+      ],
+      "default": "system"
+    },
+    "notifications_enabled": {
+      "type": "boolean",
+      "default": true
+    },
+    "email_notifications": {
+      "type": "boolean",
+      "default": true
+    },
+    "notification_types": {
+      "type": "array",
+      "items": {
+        "type": "string"
+      },
+      "description": "Which notification types to receive"
+    },
+    "default_project_view": {
+      "type": "string",
+      "enum": [
+        "board",
+        "list",
+        "timeline",
+        "calendar"
+      ],
+      "default": "board"
+    },
+    "language": {
+      "type": "string",
+      "default": "en"
+    },
+    "timezone": {
+      "type": "string",
+      "default": "UTC"
+    },
+    "items_per_page": {
+      "type": "number",
+      "default": 25
+    }
+  },
+  "required": [
+    "user_email"
+  ]
+}

@@ -1,0 +1,96 @@
+{
+  "name": "Task",
+  "type": "object",
+  "properties": {
+    "title": {
+      "type": "string",
+      "description": "Task title"
+    },
+    "description": {
+      "type": "string",
+      "description": "Task description (rich text)"
+    },
+    "project_id": {
+      "type": "string",
+      "description": "Reference to Project (required)"
+    },
+    "parent_task_id": {
+      "type": "string",
+      "description": "Reference to parent Task for subtask hierarchy"
+    },
+    "assigned_to_email": {
+      "type": "string",
+      "description": "Email of responsible user"
+    },
+    "category_id": {
+      "type": "string",
+      "description": "Reference to TaskCategory"
+    },
+    "type_id": {
+      "type": "string",
+      "description": "Reference to TaskType"
+    },
+    "status": {
+      "type": "string",
+      "enum": [
+        "backlog",
+        "todo",
+        "in_progress",
+        "in_review",
+        "blocked",
+        "done",
+        "cancelled"
+      ],
+      "default": "backlog"
+    },
+    "priority": {
+      "type": "string",
+      "enum": [
+        "critical",
+        "high",
+        "medium",
+        "low"
+      ],
+      "default": "medium"
+    },
+    "due_date": {
+      "type": "string",
+      "format": "date-time",
+      "description": "Task due date"
+    },
+    "start_date": {
+      "type": "string",
+      "format": "date-time",
+      "description": "When work should start"
+    },
+    "estimated_hours": {
+      "type": "number",
+      "description": "Estimated effort in hours"
+    },
+    "actual_hours": {
+      "type": "number",
+      "description": "Actual hours spent"
+    },
+    "completion_percentage": {
+      "type": "number",
+      "default": 0,
+      "description": "0-100 completion percentage"
+    },
+    "is_overdue": {
+      "type": "boolean",
+      "default": false,
+      "description": "Auto-calculated: true if due_date < now and status not done/cancelled"
+    },
+    "tags": {
+      "type": "array",
+      "items": {
+        "type": "string"
+      },
+      "description": "Task tags/labels"
+    }
+  },
+  "required": [
+    "title",
+    "project_id"
+  ]
+}

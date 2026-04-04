@@ -1,0 +1,45 @@
+{
+  "name": "ProjectAssignment",
+  "type": "object",
+  "properties": {
+    "project_id": {
+      "type": "string",
+      "description": "Reference to Project"
+    },
+    "user_email": {
+      "type": "string",
+      "description": "Email of assigned user"
+    },
+    "project_role": {
+      "type": "string",
+      "enum": [
+        "manager",
+        "lead",
+        "developer",
+        "designer",
+        "tester",
+        "analyst",
+        "stakeholder"
+      ],
+      "default": "developer",
+      "description": "User's role in this project"
+    },
+    "assigned_date": {
+      "type": "string",
+      "format": "date-time"
+    },
+    "status": {
+      "type": "string",
+      "enum": [
+        "active",
+        "removed"
+      ],
+      "default": "active"
+    }
+  },
+  "required": [
+    "project_id",
+    "user_email",
+    "project_role"
+  ]
+}

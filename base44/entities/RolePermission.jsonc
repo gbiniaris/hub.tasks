@@ -1,0 +1,28 @@
+{
+  "name": "RolePermission",
+  "type": "object",
+  "properties": {
+    "role_id": {
+      "type": "string",
+      "description": "Reference to Role entity"
+    },
+    "permission_id": {
+      "type": "string",
+      "description": "Reference to Permission entity"
+    },
+    "role_slug": {
+      "type": "string",
+      "description": "Denormalized role slug for quick lookups"
+    },
+    "permission_slug": {
+      "type": "string",
+      "description": "Denormalized permission slug for quick lookups"
+    }
+  },
+  "required": [
+    "role_id",
+    "permission_id",
+    "role_slug",
+    "permission_slug"
+  ]
+}

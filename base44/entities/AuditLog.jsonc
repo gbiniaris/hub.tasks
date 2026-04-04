@@ -1,0 +1,49 @@
+{
+  "name": "AuditLog",
+  "type": "object",
+  "properties": {
+    "action": {
+      "type": "string",
+      "enum": [
+        "create",
+        "update",
+        "delete"
+      ],
+      "description": "Action performed"
+    },
+    "entity_type": {
+      "type": "string",
+      "description": "Entity type affected (e.g. Task, Project, Team)"
+    },
+    "entity_id": {
+      "type": "string",
+      "description": "ID of affected entity"
+    },
+    "performed_by_email": {
+      "type": "string",
+      "description": "Email of user who performed the action"
+    },
+    "changes": {
+      "type": "string",
+      "description": "JSON string of field changes"
+    },
+    "ip_address": {
+      "type": "string",
+      "description": "IP address of requester"
+    },
+    "user_agent": {
+      "type": "string",
+      "description": "Browser user agent"
+    },
+    "description": {
+      "type": "string",
+      "description": "Human-readable description of the action"
+    }
+  },
+  "required": [
+    "action",
+    "entity_type",
+    "entity_id",
+    "performed_by_email"
+  ]
+}

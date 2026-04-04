@@ -1,0 +1,66 @@
+{
+  "name": "ReportDefinition",
+  "type": "object",
+  "properties": {
+    "name": {
+      "type": "string",
+      "description": "Report name"
+    },
+    "description": {
+      "type": "string"
+    },
+    "report_type": {
+      "type": "string",
+      "enum": [
+        "task_summary",
+        "project_health",
+        "team_performance",
+        "user_workload",
+        "overdue_tasks",
+        "completion_trends",
+        "custom"
+      ],
+      "description": "Type of report"
+    },
+    "filters": {
+      "type": "string",
+      "description": "JSON string of filter configuration"
+    },
+    "columns": {
+      "type": "array",
+      "items": {
+        "type": "string"
+      },
+      "description": "Which columns/fields to include"
+    },
+    "chart_type": {
+      "type": "string",
+      "enum": [
+        "bar",
+        "line",
+        "pie",
+        "table",
+        "kanban"
+      ],
+      "description": "Visualization type"
+    },
+    "owner_email": {
+      "type": "string",
+      "description": "Report creator email"
+    },
+    "is_public": {
+      "type": "boolean",
+      "default": false,
+      "description": "Whether all users can see this report"
+    },
+    "schedule": {
+      "type": "string",
+      "description": "Optional: cron schedule for auto-generation"
+    }
+  },
+  "required": [
+    "name",
+    "report_type",
+    "owner_email"
+  ]
+}
