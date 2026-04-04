@@ -3,12 +3,22 @@ import { Link, useLocation } from 'react-router-dom';
 import { 
   CheckSquare, FolderOpen, Users, BarChart2, Shield, ChevronDown, ChevronRight,
   Settings, ClipboardList, Calendar, UserCheck, Building2, List, LayoutGrid,
-  ScrollText, BookOpen
+  ScrollText, BookOpen, LayoutDashboard, TrendingUp, Briefcase
 } from 'lucide-react';
 import { useI18n } from '../lib/i18n';
 import { cn } from '../lib/utils';
 
 const NAV = [
+  {
+    key: 'dashboards', icon: LayoutDashboard, labelKey: 'dashboard',
+    children: [
+      { path: '/dashboard', labelKey: 'dashboard', icon: LayoutDashboard },
+      { path: '/dashboard/project', labelKey: 'projects', icon: FolderOpen },
+      { path: '/dashboard/team', labelKey: 'teams', icon: Building2 },
+      { path: '/dashboard/user', labelKey: 'myTasks', icon: UserCheck },
+      { path: '/dashboard/pmo', label: 'PMO', icon: Briefcase },
+    ]
+  },
   {
     key: 'tasks', icon: CheckSquare, labelKey: 'tasks',
     children: [
@@ -38,7 +48,7 @@ const NAV = [
 export default function Sidebar({ collapsed, onCollapse }) {
   const { t } = useI18n();
   const location = useLocation();
-  const [expanded, setExpanded] = useState({ tasks: true, admin: false });
+  const [expanded, setExpanded] = useState({ dashboards: true, tasks: false, admin: false });
 
   const isActive = (path) => location.pathname === path;
   const isGroupActive = (item) => item.children?.some(c => location.pathname.startsWith(c.path));
@@ -96,7 +106,7 @@ export default function Sidebar({ collapsed, onCollapse }) {
                         )}
                       >
                         <child.icon className="w-3.5 h-3.5 shrink-0" />
-                        <span className="truncate">{t(child.labelKey)}</span>
+                        <span className="truncate">{child.label || t(child.labelKey)}</span>
                       </Link>
                     ))}
                   </div>

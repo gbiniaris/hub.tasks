@@ -24,6 +24,11 @@ import RolesPermissions from './pages/admin/RolesPermissions';
 import Responsibilities from './pages/admin/Responsibilities';
 import AdminSettings from './pages/admin/Settings';
 import AuditLog from './pages/admin/AuditLog';
+import Dashboard from './pages/Dashboard';
+import ProjectDashboard from './pages/ProjectDashboard';
+import TeamDashboard from './pages/TeamDashboard';
+import UserDashboard from './pages/UserDashboard';
+import PMODashboard from './pages/PMODashboard';
 import { AuthProvider, useAuth } from '@/lib/AuthContext';
 import UserNotRegisteredError from '@/components/UserNotRegisteredError';
 // Add page imports here
@@ -51,7 +56,12 @@ const AuthenticatedApp = () => {
   return (
     <Routes>
       <Route element={<Layout />}>
-        <Route path="/" element={<Tasks />} />
+        <Route path="/" element={<Dashboard />} />
+        <Route path="/dashboard" element={<Dashboard />} />
+        <Route path="/dashboard/project" element={<ProjectDashboard />} />
+        <Route path="/dashboard/team" element={<TeamDashboard />} />
+        <Route path="/dashboard/user" element={<UserDashboard />} />
+        <Route path="/dashboard/pmo" element={<PMODashboard />} />
         <Route path="/tasks" element={<Tasks />} />
         <Route path="/tasks/:id" element={<TaskDetail />} />
         <Route path="/my-tasks" element={<MyTasks />} />
