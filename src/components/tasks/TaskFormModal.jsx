@@ -20,6 +20,7 @@ export default function TaskFormModal({ task, projectId, onClose, onSave }) {
   const [categories, setCategories] = useState([]);
   const [types, setTypes] = useState([]);
   const [saving, setSaving] = useState(false);
+  const [allTasks, setAllTasks] = useState([]);
 
   useEffect(() => {
     Promise.all([
@@ -27,7 +28,8 @@ export default function TaskFormModal({ task, projectId, onClose, onSave }) {
       base44.entities.User.list('-updated_date', 100),
       base44.entities.TaskCategory.filter({ is_active: true }),
       base44.entities.TaskType.filter({ is_active: true }),
-    ]).then(([p, u, c, ty]) => { setProjects(p); setUsers(u); setCategories(c); setTypes(ty); }).catch(() => {});
+      base44.entities.Task.list('-updated_date', 200),
+    ]).then(([p, u, c, ty, at]) => { setProjects(p); setUsers(u); setCategories(c); setTypes(ty); setAllTasks(at.filter(t => t.id !== task?.id)); }).catch(() => {});
   }, []);
 
   const set = (k, v) => setForm(f => ({ ...f, [k]: v }));
@@ -127,6 +129,13 @@ export default function TaskFormModal({ task, projectId, onClose, onSave }) {
               </select>
             </Field>
           </div>
+
+          <Field label="Blocked By">
+            <select className={inputCls} value={form.blocked_by_task_id || ''} onChange={e => set('blocked_by_task_id', e.target.value)}>
+              <option value="">No dependency</option>
+              {allTasks.map(t => <option key={t.id} value={t.id}>{t.title}</option>)}
+            </select>
+          </Field>
         </form>
 
         <div className="flex items-center justify-end gap-3 px-6 py-4 border-t border-border">

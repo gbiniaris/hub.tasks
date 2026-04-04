@@ -1,6 +1,6 @@
 import { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { Plus } from 'lucide-react';
+import { Plus, Lock } from 'lucide-react';
 import { base44 } from '../api/base44Client';
 import { useI18n } from '../lib/i18n';
 import { Button } from '../components/ui/button';
@@ -38,10 +38,25 @@ export default function KanbanBoard() {
 
   useEffect(() => { load(); }, [projectFilter]);
 
+  // Build a map of taskId → blocker task for tasks with unresolved dependencies
+  const blockedMap = {};
+  tasks.forEach(task => {
+    if (task.blocked_by_task_id) {
+      const blocker = tasks.find(t => t.id === task.blocked_by_task_id);
+      if (blocker && blocker.status !== 'done') {
+        blockedMap[task.id] = blocker;
+      }
+    }
+  });
+
   const byStatus = (status) => tasks.filter(t => t.status === status);
 
   const onDrop = async (newStatus) => {
     if (!dragging || dragging.status === newStatus) { setDragging(null); setDragOver(null); return; }
+    if (blockedMap[dragging.id] && newStatus !== 'blocked') {
+      alert(`Cannot move "${dragging.title}" — it is blocked by "${blockedMap[dragging.id].title}" which is not yet Done.`);
+      setDragging(null); setDragOver(null); return;
+    }
     await base44.entities.Task.update(dragging.id, { status: newStatus });
     setTasks(prev => prev.map(t => t.id === dragging.id ? { ...t, status: newStatus } : t));
     setDragging(null);
@@ -94,8 +109,16 @@ export default function KanbanBoard() {
                     draggable
                     onDragStart={() => setDragging(task)}
                     onClick={() => navigate(`/tasks/${task.id}`)}
-                    className={`bg-card border border-border rounded-xl p-3 cursor-pointer hover:shadow-md transition-all select-none ${dragging?.id === task.id ? 'opacity-40' : ''}`}
+                    className={`border rounded-xl p-3 cursor-pointer hover:shadow-md transition-all select-none ${
+                      dragging?.id === task.id ? 'opacity-40' : ''
+                    } ${blockedMap[task.id] ? 'bg-amber-50 border-amber-300' : 'bg-card border-border'}`}
                   >
+                    {blockedMap[task.id] && (
+                      <div className="flex items-center gap-1.5 text-xs text-amber-700 font-medium mb-2">
+                        <Lock className="w-3 h-3" />
+                        Blocked by: {blockedMap[task.id].title.slice(0, 28)}{blockedMap[task.id].title.length > 28 ? '…' : ''}
+                      </div>
+                    )}
                     <p className="text-sm font-medium text-foreground leading-snug mb-2">{task.title}</p>
                     <div className="flex items-center justify-between">
                       <PriorityBadge priority={task.priority} />

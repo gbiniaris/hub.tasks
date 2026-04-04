@@ -1,6 +1,6 @@
 import { useState, useEffect } from 'react';
 import { useParams, useNavigate, Link } from 'react-router-dom';
-import { ArrowLeft, Edit, Clock, Calendar, User, Loader2, Paperclip, Plus, Send, Tag } from 'lucide-react';
+import { ArrowLeft, Edit, Clock, Calendar, User, Loader2, Paperclip, Plus, Send, Tag, AlertTriangle, Link2 } from 'lucide-react';
 import { base44 } from '../api/base44Client';
 import { useI18n } from '../lib/i18n';
 import { Button } from '../components/ui/button';
@@ -34,6 +34,8 @@ export default function TaskDetail() {
   const [history, setHistory] = useState([]);
   const [subtasks, setSubtasks] = useState([]);
   const [collaborators, setCollaborators] = useState([]);
+  const [blockerTask, setBlockerTask] = useState(null);
+  const [dependentTasks, setDependentTasks] = useState([]);
   const [loading, setLoading] = useState(true);
   const [editing, setEditing] = useState(false);
   const [newComment, setNewComment] = useState('');
@@ -51,18 +53,26 @@ export default function TaskDetail() {
     setTask(t);
     setUser(me);
     if (t) {
-      const [c, a, h, s, col] = await Promise.all([
+      const [c, a, h, s, col, deps] = await Promise.all([
         base44.entities.TaskComment.filter({ task_id: id }),
         base44.entities.TaskAttachment.filter({ task_id: id }),
         base44.entities.TaskHistory.filter({ task_id: id }),
         base44.entities.Task.filter({ parent_task_id: id }),
         base44.entities.TaskCollaborator.filter({ task_id: id }),
+        base44.entities.Task.filter({ blocked_by_task_id: id }),
       ]);
       setComments(c.sort((a, b) => new Date(a.created_date) - new Date(b.created_date)));
       setAttachments(a);
       setHistory(h.sort((a, b) => new Date(b.created_date) - new Date(a.created_date)));
       setSubtasks(s);
       setCollaborators(col);
+      setDependentTasks(deps);
+      if (t?.blocked_by_task_id) {
+        const blockers = await base44.entities.Task.filter({ id: t.blocked_by_task_id });
+        setBlockerTask(blockers[0] || null);
+      } else {
+        setBlockerTask(null);
+      }
     }
     setLoading(false);
   };
@@ -114,25 +124,20 @@ export default function TaskDetail() {
         </Button>
       </div>
 
-      {/* Tabs */}
-      <div className="flex gap-1 border-b border-border overflow-x-auto">
-        {TABS.map(tab => (
-          <button
-            key={tab}
-            onClick={() => setActiveTab(tab)}
-            className={`px-4 py-2.5 text-sm font-medium whitespace-nowrap border-b-2 transition-colors ${
-              activeTab === tab
-                ? 'border-primary text-primary'
-                : 'border-transparent text-muted-foreground hover:text-foreground'
-            }`}
-          >
-            {t(tab)}
-            {tab === 'comments' && comments.length > 0 && (
-              <span className="ml-1.5 bg-muted text-muted-foreground text-xs px-1.5 py-0.5 rounded-full">{comments.length}</span>
-            )}
-          </button>
-        ))}
-      </div>
+      {/* Blocker warning */}
+      {blockerTask && blockerTask.status !== 'done' && (
+        <div className="flex items-start gap-3 bg-amber-50 border border-amber-200 text-amber-800 rounded-xl px-4 py-3">
+          <AlertTriangle className="w-4 h-4 mt-0.5 shrink-0 text-amber-600" />
+          <div className="text-sm">
+            <span className="font-semibold">Blocked by an unresolved dependency:</span>{' '}
+            <Link to={`/tasks/${blockerTask.id}`} className="underline font-medium hover:text-amber-900">
+              {blockerTask.title}
+            </Link>
+            {' '}is currently <span className="font-semibold capitalize">{blockerTask.status?.replace('_', ' ')}</span>.
+            This task cannot proceed until that task is marked Done.
+          </div>
+        </div>
+      )}
 
       <div className="grid grid-cols-3 gap-6">
         {/* Main content */}
@@ -263,8 +268,42 @@ export default function TaskDetail() {
           )}
 
           {activeTab === 'relatedTasks' && (
-            <div className="bg-card border border-border rounded-xl p-5">
-              <p className="text-sm text-muted-foreground text-center py-6">{t('noResults')}</p>
+            <div className="space-y-4">
+              {/* Blocked by */}
+              <div className="bg-card border border-border rounded-xl p-5">
+                <h3 className="text-sm font-semibold text-foreground mb-3 flex items-center gap-2">
+                  <Link2 className="w-4 h-4" /> Blocked By
+                </h3>
+                {blockerTask ? (
+                  <Link to={`/tasks/${blockerTask.id}`}
+                    className={`flex items-center gap-3 p-3 rounded-xl border transition-colors hover:bg-muted/30 ${
+                      blockerTask.status !== 'done' ? 'border-amber-300 bg-amber-50' : 'border-border'
+                    }`}>
+                    <div className={`w-2 h-2 rounded-full shrink-0 ${blockerTask.status === 'done' ? 'bg-green-500' : 'bg-amber-500'}`} />
+                    <span className="text-sm font-medium text-foreground flex-1">{blockerTask.title}</span>
+                    <StatusBadge status={blockerTask.status} />
+                  </Link>
+                ) : (
+                  <p className="text-sm text-muted-foreground">No blocking dependency set.</p>
+                )}
+              </div>
+              {/* Tasks blocked by this one */}
+              {dependentTasks.length > 0 && (
+                <div className="bg-card border border-border rounded-xl p-5">
+                  <h3 className="text-sm font-semibold text-foreground mb-3 flex items-center gap-2">
+                    <Link2 className="w-4 h-4" /> Blocks These Tasks
+                  </h3>
+                  <div className="space-y-2">
+                    {dependentTasks.map(d => (
+                      <Link key={d.id} to={`/tasks/${d.id}`}
+                        className="flex items-center gap-3 p-3 rounded-xl border border-border hover:bg-muted/30 transition-colors">
+                        <span className="text-sm text-foreground flex-1">{d.title}</span>
+                        <StatusBadge status={d.status} />
+                      </Link>
+                    ))}
+                  </div>
+                </div>
+              )}
             </div>
           )}
         </div>

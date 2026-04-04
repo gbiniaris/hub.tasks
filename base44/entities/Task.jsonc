@@ -18,6 +18,10 @@
       "type": "string",
       "description": "Reference to parent Task for subtask hierarchy"
     },
+    "blocked_by_task_id": {
+      "type": "string",
+      "description": "Reference to another Task that must be Done before this one can proceed"
+    },
     "assigned_to_email": {
       "type": "string",
       "description": "Email of responsible user"
