@@ -117,17 +117,29 @@ export default function Dashboard() {
       {/* Charts Row 2 */}
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
         <ChartCard title="Tasks by Status" subtitle="Current distribution">
-          <ResponsiveContainer width="100%" height={220}>
-            <BarChart data={statusDist} layout="vertical">
-              <CartesianGrid strokeDasharray="3 3" stroke="hsl(var(--border))" horizontal={false} />
-              <XAxis type="number" tick={{ fontSize: 10, fill: 'hsl(var(--muted-foreground))' }} />
-              <YAxis type="category" dataKey="name" tick={{ fontSize: 10, fill: 'hsl(var(--muted-foreground))' }} width={70} />
-              <Tooltip contentStyle={TOOLTIP_STYLE} />
-              <Bar dataKey="value" radius={[0, 4, 4, 0]} name="Tasks">
-                {statusDist.map((d, i) => <Cell key={i} fill={d.fill} />)}
-              </Bar>
-            </BarChart>
-          </ResponsiveContainer>
+          <div className="grid grid-cols-2 gap-4">
+            <ResponsiveContainer width="100%" height={220}>
+              <BarChart data={statusDist} layout="vertical">
+                <CartesianGrid strokeDasharray="3 3" stroke="hsl(var(--border))" horizontal={false} />
+                <XAxis type="number" tick={{ fontSize: 10, fill: 'hsl(var(--muted-foreground))' }} />
+                <YAxis type="category" dataKey="name" tick={{ fontSize: 10, fill: 'hsl(var(--muted-foreground))' }} width={70} />
+                <Tooltip contentStyle={TOOLTIP_STYLE} />
+                <Bar dataKey="value" radius={[0, 4, 4, 0]} name="Tasks">
+                  {statusDist.map((d, i) => <Cell key={i} fill={d.fill} />)}
+                </Bar>
+              </BarChart>
+            </ResponsiveContainer>
+            <ResponsiveContainer width="100%" height={220}>
+              <PieChart>
+                <Pie data={statusDist} dataKey="value" nameKey="name" cx="50%" cy="45%" outerRadius={80} innerRadius={40}
+                  label={({ name, value }) => value > 0 ? `${value}` : ''} labelLine={false}>
+                  {statusDist.map((d, i) => <Cell key={i} fill={d.fill} />)}
+                </Pie>
+                <Tooltip contentStyle={TOOLTIP_STYLE} />
+                <Legend iconType="circle" iconSize={8} wrapperStyle={{ fontSize: 11 }} />
+              </PieChart>
+            </ResponsiveContainer>
+          </div>
         </ChartCard>
 
         <ChartCard title="Tasks by Priority">

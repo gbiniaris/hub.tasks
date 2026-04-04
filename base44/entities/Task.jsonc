@@ -85,6 +85,11 @@
       "default": false,
       "description": "Auto-calculated: true if due_date < now and status not done/cancelled"
     },
+    "is_archived": {
+      "type": "boolean",
+      "default": false,
+      "description": "True if task was in Done status for more than 30 days and has been archived"
+    },
     "tags": {
       "type": "array",
       "items": {

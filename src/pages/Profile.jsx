@@ -116,7 +116,7 @@ export default function Profile() {
                 onClick={() => setTheme(th.id)}
                 className={`flex items-center gap-2 px-4 py-2 rounded-lg text-sm font-medium border transition-all ${theme === th.id ? 'bg-primary text-primary-foreground border-primary' : 'bg-background text-foreground border-border hover:border-primary'}`}
               >
-                <span className={`w-3.5 h-3.5 rounded-full border ${th.id === 'white' ? 'bg-white border-slate-300' : th.id === 'blue' ? 'bg-blue-500 border-blue-600' : th.id === 'dark' ? 'bg-slate-800 border-slate-700' : 'bg-green-500 border-green-600'}`} />
+                <span className={`w-3.5 h-3.5 rounded-full border ${th.id === 'white' ? 'bg-white border-slate-300' : th.id === 'blue' ? 'bg-blue-500 border-blue-600' : th.id === 'dark' ? 'bg-slate-800 border-slate-700' : th.id === 'darkgrey' ? 'bg-slate-600 border-slate-500' : 'bg-green-500 border-green-600'}`} />
                 {t(`theme${th.label}`)}
               </button>
             ))}

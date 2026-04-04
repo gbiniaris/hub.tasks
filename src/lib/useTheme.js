@@ -5,6 +5,7 @@ export const THEMES = [
   { id: 'blue', label: 'Blue' },
   { id: 'dark', label: 'Dark' },
   { id: 'green', label: 'Green' },
+  { id: 'darkgrey', label: 'Dark Grey' },
 ];
 
 export function useTheme() {

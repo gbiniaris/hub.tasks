@@ -1,6 +1,7 @@
 import { useState, useEffect } from 'react';
 import { useParams, useNavigate, Link } from 'react-router-dom';
 import { ArrowLeft, Edit, Clock, Calendar, User, Loader2, Paperclip, Plus, Send, Tag, AlertTriangle, Link2 } from 'lucide-react';
+import TaskTimer from '../components/tasks/TaskTimer';
 import { base44 } from '../api/base44Client';
 import { useI18n } from '../lib/i18n';
 import { Button } from '../components/ui/button';
@@ -338,6 +339,8 @@ export default function TaskDetail() {
               {task.actual_hours ?? <span className="text-muted-foreground">—</span>}
             </InfoRow>
           </div>
+
+          <TaskTimer task={task} onUpdate={load} />
 
           {collaborators.length > 0 && (
             <div className="bg-card border border-border rounded-xl p-5">
