@@ -2,42 +2,58 @@ import { useState, useEffect, useMemo } from 'react';
 import { useNavigate } from 'react-router-dom';
 import {
   BarChart, Bar, PieChart, Pie, Cell, XAxis, YAxis, CartesianGrid,
-  Tooltip, ResponsiveContainer, Legend
+  Tooltip, ResponsiveContainer, Legend, LineChart, Line
 } from 'recharts';
-import { Download, Filter, X, ChevronDown, ChevronUp, ExternalLink } from 'lucide-react';
+import { Filter, X, ChevronDown, ChevronUp, ExternalLink, AlertCircle, CheckCircle2, Clock, Users, Layers } from 'lucide-react';
 import { base44 } from '../api/base44Client';
-import { useI18n } from '../lib/i18n';
 import { Button } from '../components/ui/button';
 import StatusBadge from '../components/StatusBadge';
 import PriorityBadge from '../components/PriorityBadge';
-import { computeSLAMetrics, buildWorkloadMap, avgCompletionDays } from '../lib/analyticsUtils';
-import { format } from 'date-fns';
+import { format, differenceInDays, subDays, startOfDay } from 'date-fns';
 
 const REPORT_TYPES = [
-  { id: 'task_detail',        label: 'Task Detail Report' },
-  { id: 'overdue',            label: 'Overdue Tasks Report' },
-  { id: 'project_performance',label: 'Project Performance' },
-  { id: 'team_performance',   label: 'Team Performance' },
-  { id: 'user_performance',   label: 'User Performance' },
-  { id: 'sla_compliance',     label: 'SLA / Deadline Compliance' },
-  { id: 'workload',           label: 'Workload Distribution' },
-  { id: 'task_history',       label: 'Task History Report' },
+  { id: 'overview',            label: 'Overview' },
+  { id: 'task_detail',         label: 'Task Detail' },
+  { id: 'overdue',             label: 'Overdue Tasks' },
+  { id: 'project_performance', label: 'Project Performance' },
+  { id: 'team_performance',    label: 'Team Performance' },
+  { id: 'user_performance',    label: 'User Performance' },
+  { id: 'workload',            label: 'Workload Distribution' },
 ];
 
-const TOOLTIP_STYLE = { background:'hsl(var(--card))', border:'1px solid hsl(var(--border))', borderRadius:8, fontSize:12 };
-const PIE_COLORS = ['#3b82f6','#10b981','#f59e0b','#ef4444','#8b5cf6','#ec4899'];
+const TOOLTIP_STYLE = { background: 'hsl(var(--card))', border: '1px solid hsl(var(--border))', borderRadius: 8, fontSize: 12 };
+const STATUS_COLORS = { backlog: '#94a3b8', todo: '#3b82f6', in_progress: '#f59e0b', in_review: '#8b5cf6', blocked: '#ef4444', done: '#22c55e', cancelled: '#cbd5e1' };
+const PIE_COLORS = ['#3b82f6', '#22c55e', '#f59e0b', '#ef4444', '#8b5cf6', '#ec4899', '#94a3b8'];
+
+function KPICard({ icon: Icon, label, value, sub, color = 'blue' }) {
+  const colors = {
+    blue: 'bg-blue-50 text-blue-700 border-blue-100',
+    green: 'bg-green-50 text-green-700 border-green-100',
+    red: 'bg-red-50 text-red-700 border-red-100',
+    amber: 'bg-amber-50 text-amber-700 border-amber-100',
+    purple: 'bg-purple-50 text-purple-700 border-purple-100',
+  };
+  return (
+    <div className={`rounded-xl border p-5 ${colors[color]}`}>
+      <div className="flex items-start justify-between mb-3">
+        <span className="text-xs font-semibold uppercase tracking-wide opacity-75">{label}</span>
+        {Icon && <Icon className="w-4 h-4 opacity-60" />}
+      </div>
+      <div className="text-3xl font-bold">{value}</div>
+      {sub && <div className="text-xs mt-1 opacity-70">{sub}</div>}
+    </div>
+  );
+}
 
 export default function Reports() {
-  const { t } = useI18n();
   const navigate = useNavigate();
-  const [activeReport, setActiveReport] = useState('task_detail');
+  const [activeReport, setActiveReport] = useState('overview');
   const [tasks, setTasks] = useState([]);
   const [projects, setProjects] = useState([]);
   const [teams, setTeams] = useState([]);
   const [users, setUsers] = useState([]);
-  const [history, setHistory] = useState([]);
   const [loading, setLoading] = useState(true);
-  const [sort, setSort] = useState({ field: 'created_date', dir: 'desc' });
+  const [sort, setSort] = useState({ field: 'due_date', dir: 'asc' });
   const [filters, setFilters] = useState({});
 
   useEffect(() => {
@@ -46,14 +62,14 @@ export default function Reports() {
       base44.entities.Project.list('-updated_date', 100),
       base44.entities.Team.list('-updated_date', 50),
       base44.entities.User.list('-created_date', 100),
-    ]).then(([t, p, tm, u]) => { setTasks(t); setProjects(p); setTeams(tm); setUsers(u); setLoading(false); });
+    ]).then(([t, p, tm, u]) => {
+      setTasks(t);
+      setProjects(p);
+      setTeams(tm);
+      setUsers(u);
+      setLoading(false);
+    });
   }, []);
-
-  useEffect(() => {
-    if (activeReport === 'task_history') {
-      base44.entities.TaskHistory.list('-created_date', 500).then(setHistory);
-    }
-  }, [activeReport]);
 
   const setFilter = (k, v) => setFilters(f => ({ ...f, [k]: v || undefined }));
   const clearFilters = () => setFilters({});
@@ -64,62 +80,110 @@ export default function Reports() {
     ? (sort.dir === 'asc' ? <ChevronUp className="w-3 h-3" /> : <ChevronDown className="w-3 h-3" />)
     : <ChevronDown className="w-3 h-3 opacity-30" />;
   const Th = ({ field, label }) => (
-    <th onClick={() => toggleSort(field)} className="pb-2 text-left text-xs font-semibold text-muted-foreground uppercase cursor-pointer select-none hover:text-foreground">
+    <th onClick={() => toggleSort(field)} className="px-4 py-3 text-left text-xs font-semibold text-muted-foreground uppercase cursor-pointer select-none hover:text-foreground">
       <span className="flex items-center gap-1">{label}<SortIcon field={field} /></span>
     </th>
   );
 
+  // ── Filtered / sorted task list ──────────────────────────────────────
   const filteredTasks = useMemo(() => {
-    let t = [...tasks];
-    if (filters.status) t = t.filter(x => x.status === filters.status);
-    if (filters.priority) t = t.filter(x => x.priority === filters.priority);
-    if (filters.project_id) t = t.filter(x => x.project_id === filters.project_id);
-    if (filters.assigned_to_email) t = t.filter(x => x.assigned_to_email === filters.assigned_to_email);
-    if (activeReport === 'overdue') t = t.filter(x => x.is_overdue);
-    return t.sort((a, b) => {
+    let list = [...tasks];
+    if (filters.status) list = list.filter(x => x.status === filters.status);
+    if (filters.priority) list = list.filter(x => x.priority === filters.priority);
+    if (filters.project_id) list = list.filter(x => x.project_id === filters.project_id);
+    if (filters.assigned_to_email) list = list.filter(x => x.assigned_to_email === filters.assigned_to_email);
+    if (activeReport === 'overdue') list = list.filter(x => x.is_overdue || (x.due_date && new Date(x.due_date) < new Date() && x.status !== 'done' && x.status !== 'cancelled'));
+    return list.sort((a, b) => {
       const v1 = a[sort.field] ?? ''; const v2 = b[sort.field] ?? '';
       const c = v1 < v2 ? -1 : v1 > v2 ? 1 : 0;
       return sort.dir === 'asc' ? c : -c;
     });
   }, [tasks, filters, sort, activeReport]);
 
-  const projectSLA = useMemo(() => projects.map(p => {
+  // ── Overview metrics ─────────────────────────────────────────────────
+  const overview = useMemo(() => {
+    const activeTasks = tasks.filter(t => !['done', 'cancelled'].includes(t.status));
+    const done = tasks.filter(t => t.status === 'done');
+    const overdue = tasks.filter(t => t.is_overdue || (t.due_date && new Date(t.due_date) < new Date() && !['done', 'cancelled'].includes(t.status)));
+    const blocked = tasks.filter(t => t.status === 'blocked');
+    const statusDist = Object.entries(
+      tasks.reduce((acc, t) => { acc[t.status] = (acc[t.status] || 0) + 1; return acc; }, {})
+    ).map(([name, value]) => ({ name: name.replace('_', ' '), value, color: STATUS_COLORS[name] || '#94a3b8' }));
+    const priorityDist = ['critical', 'high', 'medium', 'low'].map(p => ({
+      name: p, value: tasks.filter(t => t.priority === p).length,
+    })).filter(d => d.value > 0);
+    // last 14 days creation trend
+    const trend = Array.from({ length: 14 }, (_, i) => {
+      const day = startOfDay(subDays(new Date(), 13 - i));
+      return {
+        date: format(day, 'MMM d'),
+        created: tasks.filter(t => t.created_date && startOfDay(new Date(t.created_date)).getTime() === day.getTime()).length,
+        done: tasks.filter(t => t.status === 'done' && t.updated_date && startOfDay(new Date(t.updated_date)).getTime() === day.getTime()).length,
+      };
+    });
+    return { activeTasks: activeTasks.length, done: done.length, overdue: overdue.length, blocked: blocked.length, statusDist, priorityDist, trend, total: tasks.length };
+  }, [tasks]);
+
+  // ── Project performance ──────────────────────────────────────────────
+  const projectPerf = useMemo(() => projects.map(p => {
     const pt = tasks.filter(t => t.project_id === p.id);
-    const sla = computeSLAMetrics(pt);
-    return { name: p.name, id: p.id, total: pt.length, onTime: sla.onTime, late: sla.late, rate: sla.rate, overdue: pt.filter(t => t.is_overdue).length };
-  }).sort((a, b) => a.rate - b.rate), [projects, tasks]);
+    const done = pt.filter(t => t.status === 'done').length;
+    const overdue = pt.filter(t => t.is_overdue || (t.due_date && new Date(t.due_date) < new Date() && !['done','cancelled'].includes(t.status))).length;
+    return { ...p, taskCount: pt.length, done, overdue };
+  }), [projects, tasks]);
 
-  const workload = useMemo(() => buildWorkloadMap(tasks), [tasks]);
-
-  const userPerf = useMemo(() => users.map(u => {
-    const ut = tasks.filter(t => t.assigned_to_email === u.email);
-    const sla = computeSLAMetrics(ut);
-    const avg = avgCompletionDays(ut);
-    return { name: u.full_name || u.email?.split('@')[0], email: u.email, total: ut.length, done: ut.filter(t => t.status === 'done').length, overdue: ut.filter(t => t.is_overdue).length, sla: sla.rate, avg };
-  }).filter(u => u.total > 0).sort((a, b) => b.total - a.total), [users, tasks]);
-
+  // ── Team performance ─────────────────────────────────────────────────
   const teamPerf = useMemo(() => teams.map(tm => {
     const tmProjects = projects.filter(p => p.team_id === tm.id);
     const tmTasks = tasks.filter(t => tmProjects.some(p => p.id === t.project_id));
-    const sla = computeSLAMetrics(tmTasks);
-    return { name: tm.name, id: tm.id, total: tmTasks.length, done: tmTasks.filter(t => t.status === 'done').length, overdue: tmTasks.filter(t => t.is_overdue).length, sla: sla.rate };
-  }).filter(t => t.total > 0), [teams, projects, tasks]);
+    const done = tmTasks.filter(t => t.status === 'done').length;
+    const overdue = tmTasks.filter(t => t.is_overdue || (t.due_date && new Date(t.due_date) < new Date() && !['done','cancelled'].includes(t.status))).length;
+    const inProgress = tmTasks.filter(t => t.status === 'in_progress').length;
+    return { id: tm.id, name: tm.name, total: tmTasks.length, done, overdue, inProgress, projectCount: tmProjects.length };
+  }).filter(t => t.total > 0 || t.projectCount > 0), [teams, projects, tasks]);
+
+  // ── User performance ─────────────────────────────────────────────────
+  const userPerf = useMemo(() => users.map(u => {
+    const ut = tasks.filter(t => t.assigned_to_email === u.email);
+    const done = ut.filter(t => t.status === 'done').length;
+    const overdue = ut.filter(t => t.is_overdue || (t.due_date && new Date(t.due_date) < new Date() && !['done','cancelled'].includes(t.status))).length;
+    const inProgress = ut.filter(t => t.status === 'in_progress').length;
+    const doneTasks = ut.filter(t => t.status === 'done' && t.created_date);
+    const avgDays = doneTasks.length ? Math.round(doneTasks.reduce((sum, t) => sum + differenceInDays(new Date(t.updated_date || new Date()), new Date(t.created_date)), 0) / doneTasks.length) : null;
+    const rate = ut.length ? Math.round((done / ut.length) * 100) : 0;
+    return { id: u.id, name: u.full_name || u.email?.split('@')[0] || u.email, email: u.email, total: ut.length, done, overdue, inProgress, rate, avgDays };
+  }).filter(u => u.total > 0).sort((a, b) => b.total - a.total), [users, tasks]);
+
+  // ── Workload ─────────────────────────────────────────────────────────
+  const workload = useMemo(() => {
+    const open = tasks.filter(t => !['done', 'cancelled'].includes(t.status));
+    const map = {};
+    open.forEach(t => {
+      if (t.assigned_to_email) {
+        if (!map[t.assigned_to_email]) map[t.assigned_to_email] = { email: t.assigned_to_email, name: t.assigned_to_email.split('@')[0], count: 0, critical: 0, high: 0 };
+        map[t.assigned_to_email].count++;
+        if (t.priority === 'critical') map[t.assigned_to_email].critical++;
+        if (t.priority === 'high') map[t.assigned_to_email].high++;
+      }
+    });
+    return Object.values(map).sort((a, b) => b.count - a.count);
+  }, [tasks]);
 
   const Select = ({ label, value, onChange, options }) => (
     <select value={value || ''} onChange={e => onChange(e.target.value)}
-      className="text-sm border border-border rounded-lg px-3 py-1.5 bg-background">
+      className="text-sm border border-border rounded-lg px-3 py-1.5 bg-background text-foreground">
       <option value="">{label}</option>
       {options.map(o => <option key={o.value} value={o.value}>{o.label}</option>)}
     </select>
   );
 
+  const showFilters = ['task_detail', 'overdue'].includes(activeReport);
+
   return (
-    <div className="space-y-6">
-      <div className="flex items-center justify-between">
-        <div>
-          <h1 className="text-2xl font-bold text-foreground">{t('reports')}</h1>
-          <p className="text-sm text-muted-foreground mt-0.5">Generate, filter, and drill down into operational data</p>
-        </div>
+    <div className="space-y-6 pb-8">
+      <div>
+        <h1 className="text-2xl font-bold text-foreground">Reports</h1>
+        <p className="text-sm text-muted-foreground mt-0.5">Operational analytics across tasks, projects, and teams</p>
       </div>
 
       {/* Report selector */}
@@ -133,11 +197,11 @@ export default function Reports() {
       </div>
 
       {/* Filters */}
-      {['task_detail','overdue','sla_compliance'].includes(activeReport) && (
+      {showFilters && (
         <div className="bg-card border border-border rounded-xl p-4 flex flex-wrap items-center gap-3">
           <Filter className="w-4 h-4 text-muted-foreground shrink-0" />
           <Select label="All Statuses" value={filters.status} onChange={v => setFilter('status', v)}
-            options={['backlog','todo','in_progress','in_review','blocked','done','cancelled'].map(s => ({ value: s, label: s.replace('_',' ') }))} />
+            options={['backlog','todo','in_progress','in_review','blocked','done','cancelled'].map(s => ({ value: s, label: s.replace('_', ' ') }))} />
           <Select label="All Priorities" value={filters.priority} onChange={v => setFilter('priority', v)}
             options={['critical','high','medium','low'].map(p => ({ value: p, label: p }))} />
           <Select label="All Projects" value={filters.project_id} onChange={v => setFilter('project_id', v)}
@@ -154,10 +218,109 @@ export default function Reports() {
       )}
 
       {loading ? (
-        <div className="flex items-center justify-center h-40 text-sm text-muted-foreground">{t('loading')}</div>
+        <div className="flex items-center justify-center h-40 text-sm text-muted-foreground">Loading data…</div>
       ) : (
         <>
-          {/* TASK DETAIL / OVERDUE */}
+          {/* ── OVERVIEW ── */}
+          {activeReport === 'overview' && (
+            <div className="space-y-6">
+              <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
+                <KPICard icon={Layers} label="Total Tasks" value={overview.total} color="blue" />
+                <KPICard icon={CheckCircle2} label="Completed" value={overview.done} sub={`${overview.total ? Math.round(overview.done / overview.total * 100) : 0}% of total`} color="green" />
+                <KPICard icon={AlertCircle} label="Overdue" value={overview.overdue} color="red" />
+                <KPICard icon={Clock} label="Blocked" value={overview.blocked} color="amber" />
+              </div>
+              <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+                <div className="bg-card border border-border rounded-xl p-5">
+                  <h3 className="text-sm font-semibold text-foreground mb-4">Task Status Distribution</h3>
+                  <ResponsiveContainer width="100%" height={220}>
+                    <PieChart>
+                      <Pie data={overview.statusDist} dataKey="value" nameKey="name" cx="50%" cy="50%" outerRadius={85} innerRadius={50} paddingAngle={2}
+                        label={({ name, value }) => value > 0 ? `${value}` : ''} labelLine={false}>
+                        {overview.statusDist.map((d, i) => <Cell key={i} fill={d.color} />)}
+                      </Pie>
+                      <Tooltip contentStyle={TOOLTIP_STYLE} />
+                      <Legend iconType="circle" iconSize={8} wrapperStyle={{ fontSize: 11 }} />
+                    </PieChart>
+                  </ResponsiveContainer>
+                </div>
+                <div className="bg-card border border-border rounded-xl p-5">
+                  <h3 className="text-sm font-semibold text-foreground mb-4">Priority Breakdown</h3>
+                  <ResponsiveContainer width="100%" height={220}>
+                    <BarChart data={overview.priorityDist} layout="vertical">
+                      <CartesianGrid strokeDasharray="3 3" stroke="hsl(var(--border))" horizontal={false} />
+                      <XAxis type="number" tick={{ fontSize: 10, fill: 'hsl(var(--muted-foreground))' }} allowDecimals={false} />
+                      <YAxis dataKey="name" type="category" tick={{ fontSize: 11, fill: 'hsl(var(--muted-foreground))' }} width={55} />
+                      <Tooltip contentStyle={TOOLTIP_STYLE} />
+                      <Bar dataKey="value" radius={[0, 4, 4, 0]} name="Tasks">
+                        {overview.priorityDist.map((d, i) => {
+                          const c = { critical: '#ef4444', high: '#f97316', medium: '#f59e0b', low: '#22c55e' };
+                          return <Cell key={i} fill={c[d.name] || '#94a3b8'} />;
+                        })}
+                      </Bar>
+                    </BarChart>
+                  </ResponsiveContainer>
+                </div>
+              </div>
+              <div className="bg-card border border-border rounded-xl p-5">
+                <h3 className="text-sm font-semibold text-foreground mb-4">Activity — Last 14 Days</h3>
+                <ResponsiveContainer width="100%" height={200}>
+                  <LineChart data={overview.trend}>
+                    <CartesianGrid strokeDasharray="3 3" stroke="hsl(var(--border))" />
+                    <XAxis dataKey="date" tick={{ fontSize: 10, fill: 'hsl(var(--muted-foreground))' }} />
+                    <YAxis tick={{ fontSize: 10, fill: 'hsl(var(--muted-foreground))' }} allowDecimals={false} />
+                    <Tooltip contentStyle={TOOLTIP_STYLE} />
+                    <Legend iconType="circle" iconSize={8} wrapperStyle={{ fontSize: 11 }} />
+                    <Line type="monotone" dataKey="created" name="Created" stroke="#3b82f6" strokeWidth={2} dot={false} />
+                    <Line type="monotone" dataKey="done" name="Completed" stroke="#22c55e" strokeWidth={2} dot={false} />
+                  </LineChart>
+                </ResponsiveContainer>
+              </div>
+              {/* Quick project health table */}
+              <div className="bg-card border border-border rounded-xl overflow-hidden">
+                <div className="px-5 py-3 border-b border-border">
+                  <h3 className="text-sm font-semibold text-foreground">Project Summary</h3>
+                </div>
+                <table className="w-full text-sm">
+                  <thead className="bg-muted/50">
+                    <tr>
+                      {['Project', 'Status', 'Health', 'Progress', 'Tasks', 'Overdue'].map(h => (
+                        <th key={h} className="px-4 py-3 text-left text-xs font-semibold text-muted-foreground uppercase">{h}</th>
+                      ))}
+                    </tr>
+                  </thead>
+                  <tbody className="divide-y divide-border">
+                    {projectPerf.map(p => (
+                      <tr key={p.id} className="hover:bg-muted/30 cursor-pointer" onClick={() => navigate(`/projects/${p.id}`)}>
+                        <td className="px-4 py-3 font-medium text-foreground">{p.name}</td>
+                        <td className="px-4 py-3"><StatusBadge status={p.status} /></td>
+                        <td className="px-4 py-3">
+                          <span className={`text-xs px-2 py-0.5 rounded-full font-medium capitalize ${p.health === 'on_track' ? 'bg-green-100 text-green-700' : p.health === 'at_risk' ? 'bg-amber-100 text-amber-700' : p.health === 'off_track' ? 'bg-red-100 text-red-700' : 'bg-indigo-100 text-indigo-700'}`}>
+                            {p.health?.replace('_', ' ') || '—'}
+                          </span>
+                        </td>
+                        <td className="px-4 py-3">
+                          <div className="flex items-center gap-2">
+                            <div className="h-1.5 w-20 bg-muted rounded-full overflow-hidden">
+                              <div className="h-full bg-primary rounded-full" style={{ width: `${p.completion_percentage || 0}%` }} />
+                            </div>
+                            <span className="text-xs text-muted-foreground">{p.completion_percentage || 0}%</span>
+                          </div>
+                        </td>
+                        <td className="px-4 py-3 text-muted-foreground">{p.taskCount}</td>
+                        <td className="px-4 py-3"><span className={p.overdue > 0 ? 'text-red-600 font-medium' : 'text-muted-foreground'}>{p.overdue}</span></td>
+                      </tr>
+                    ))}
+                    {projectPerf.length === 0 && (
+                      <tr><td colSpan={6} className="px-4 py-8 text-center text-muted-foreground text-sm">No projects found</td></tr>
+                    )}
+                  </tbody>
+                </table>
+              </div>
+            </div>
+          )}
+
+          {/* ── TASK DETAIL / OVERDUE ── */}
           {(activeReport === 'task_detail' || activeReport === 'overdue') && (
             <div className="bg-card border border-border rounded-xl overflow-hidden">
               <div className="overflow-x-auto">
@@ -170,275 +333,301 @@ export default function Reports() {
                       <Th field="assigned_to_email" label="Assignee" />
                       <Th field="due_date" label="Due Date" />
                       <Th field="project_id" label="Project" />
-                      <th className="pb-2" />
+                      <th className="px-4 py-3" />
                     </tr>
                   </thead>
                   <tbody className="divide-y divide-border">
-                    {filteredTasks.slice(0, 100).map(task => (
-                      <tr key={task.id} className="hover:bg-muted/30 cursor-pointer" onClick={() => navigate(`/tasks/${task.id}`)}>
-                        <td className="px-4 py-3">
-                          <div className="flex items-center gap-1.5">
-                            {task.is_overdue && <span className="w-1.5 h-1.5 rounded-full bg-red-500 shrink-0" />}
-                            <span className="font-medium text-foreground truncate max-w-48">{task.title}</span>
-                          </div>
-                        </td>
-                        <td className="px-4 py-3"><StatusBadge status={task.status} /></td>
-                        <td className="px-4 py-3"><PriorityBadge priority={task.priority} /></td>
-                        <td className="px-4 py-3 text-xs text-muted-foreground">{task.assigned_to_email?.split('@')[0] || '—'}</td>
-                        <td className="px-4 py-3 text-xs">
-                          {task.due_date ? <span className={task.is_overdue ? 'text-red-600 font-semibold' : 'text-muted-foreground'}>{format(new Date(task.due_date), 'MMM d, yyyy')}</span> : '—'}
-                        </td>
-                        <td className="px-4 py-3 text-xs text-muted-foreground">{projects.find(p => p.id === task.project_id)?.name || '—'}</td>
-                        <td className="px-4 py-3"><ExternalLink className="w-3.5 h-3.5 text-muted-foreground" /></td>
-                      </tr>
-                    ))}
-                    {filteredTasks.length === 0 && <tr><td colSpan={7} className="px-4 py-8 text-center text-muted-foreground text-sm">{t('noResults')}</td></tr>}
+                    {filteredTasks.slice(0, 200).map(task => {
+                      const isOverdue = task.is_overdue || (task.due_date && new Date(task.due_date) < new Date() && !['done','cancelled'].includes(task.status));
+                      return (
+                        <tr key={task.id} className="hover:bg-muted/30 cursor-pointer" onClick={() => navigate(`/tasks/${task.id}`)}>
+                          <td className="px-4 py-3">
+                            <div className="flex items-center gap-1.5">
+                              {isOverdue && <span className="w-1.5 h-1.5 rounded-full bg-red-500 shrink-0" />}
+                              <span className="font-medium text-foreground">{task.title}</span>
+                            </div>
+                          </td>
+                          <td className="px-4 py-3"><StatusBadge status={task.status} /></td>
+                          <td className="px-4 py-3"><PriorityBadge priority={task.priority} /></td>
+                          <td className="px-4 py-3 text-xs text-muted-foreground">{task.assigned_to_email?.split('@')[0] || '—'}</td>
+                          <td className="px-4 py-3 text-xs">
+                            {task.due_date ? (
+                              <span className={isOverdue ? 'text-red-600 font-semibold' : 'text-muted-foreground'}>
+                                {format(new Date(task.due_date), 'MMM d, yyyy')}
+                              </span>
+                            ) : '—'}
+                          </td>
+                          <td className="px-4 py-3 text-xs text-muted-foreground">{projects.find(p => p.id === task.project_id)?.name || '—'}</td>
+                          <td className="px-4 py-3"><ExternalLink className="w-3.5 h-3.5 text-muted-foreground" /></td>
+                        </tr>
+                      );
+                    })}
+                    {filteredTasks.length === 0 && (
+                      <tr><td colSpan={7} className="px-4 py-10 text-center text-muted-foreground text-sm">No tasks match your filters</td></tr>
+                    )}
                   </tbody>
                 </table>
               </div>
             </div>
           )}
 
-          {/* PROJECT PERFORMANCE */}
+          {/* ── PROJECT PERFORMANCE ── */}
           {activeReport === 'project_performance' && (
             <div className="space-y-6">
               <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
                 <div className="bg-card border border-border rounded-xl p-5">
-                  <h3 className="text-sm font-semibold text-foreground mb-4">Completion by Project</h3>
-                  <ResponsiveContainer width="100%" height={220}>
-                    <BarChart data={projects.slice(0,12).map(p => ({ name: p.name.slice(0,12), value: p.completion_percentage || 0 }))}>
+                  <h3 className="text-sm font-semibold text-foreground mb-4">Completion % by Project</h3>
+                  <ResponsiveContainer width="100%" height={230}>
+                    <BarChart data={projectPerf.map(p => ({ name: p.name.length > 14 ? p.name.slice(0, 14) + '…' : p.name, pct: p.completion_percentage || 0 }))}>
                       <CartesianGrid strokeDasharray="3 3" stroke="hsl(var(--border))" />
                       <XAxis dataKey="name" tick={{ fontSize: 9, fill: 'hsl(var(--muted-foreground))' }} />
-                      <YAxis tick={{ fontSize: 10, fill: 'hsl(var(--muted-foreground))' }} unit="%" domain={[0,100]} />
+                      <YAxis tick={{ fontSize: 10, fill: 'hsl(var(--muted-foreground))' }} unit="%" domain={[0, 100]} />
                       <Tooltip contentStyle={TOOLTIP_STYLE} formatter={v => [`${v}%`, 'Completion']} />
-                      <Bar dataKey="value" fill="#3b82f6" radius={[4,4,0,0]} name="Completion" />
+                      <Bar dataKey="pct" fill="#3b82f6" radius={[4, 4, 0, 0]} name="Completion %" />
                     </BarChart>
                   </ResponsiveContainer>
                 </div>
                 <div className="bg-card border border-border rounded-xl p-5">
-                  <h3 className="text-sm font-semibold text-foreground mb-4">Project Health Distribution</h3>
-                  <ResponsiveContainer width="100%" height={220}>
-                    <PieChart>
-                      <Pie data={['on_track','at_risk','off_track','completed'].map(h => ({ name: h.replace('_',' '), value: projects.filter(p => p.health === h).length })).filter(d => d.value > 0)}
-                        dataKey="value" nameKey="name" cx="50%" cy="50%" outerRadius={80} innerRadius={45} label={({ name, value }) => value > 0 ? `${value}` : ''} labelLine={false}>
-                        {['#22c55e','#f59e0b','#ef4444','#818cf8'].map((c, i) => <Cell key={i} fill={c} />)}
-                      </Pie>
+                  <h3 className="text-sm font-semibold text-foreground mb-4">Tasks by Project (Done vs Overdue)</h3>
+                  <ResponsiveContainer width="100%" height={230}>
+                    <BarChart data={projectPerf.map(p => ({ name: p.name.length > 14 ? p.name.slice(0, 14) + '…' : p.name, total: p.taskCount, done: p.done, overdue: p.overdue }))}>
+                      <CartesianGrid strokeDasharray="3 3" stroke="hsl(var(--border))" />
+                      <XAxis dataKey="name" tick={{ fontSize: 9, fill: 'hsl(var(--muted-foreground))' }} />
+                      <YAxis tick={{ fontSize: 10, fill: 'hsl(var(--muted-foreground))' }} allowDecimals={false} />
                       <Tooltip contentStyle={TOOLTIP_STYLE} />
                       <Legend iconType="circle" iconSize={8} wrapperStyle={{ fontSize: 11 }} />
-                    </PieChart>
+                      <Bar dataKey="total" fill="#94a3b8" radius={[4, 4, 0, 0]} name="Total" />
+                      <Bar dataKey="done" fill="#22c55e" radius={[4, 4, 0, 0]} name="Done" />
+                      <Bar dataKey="overdue" fill="#ef4444" radius={[4, 4, 0, 0]} name="Overdue" />
+                    </BarChart>
                   </ResponsiveContainer>
                 </div>
               </div>
               <div className="bg-card border border-border rounded-xl overflow-hidden">
                 <table className="w-full text-sm">
                   <thead className="bg-muted/50">
-                    <tr>
-                      {['Project','Status','Health','Completion','Tasks','PM'].map(h => <th key={h} className="px-4 py-3 text-left text-xs font-semibold text-muted-foreground uppercase">{h}</th>)}
-                    </tr>
+                    <tr>{['Project', 'Status', 'Health', 'Progress', 'Tasks', 'Done', 'Overdue', 'PM'].map(h => (
+                      <th key={h} className="px-4 py-3 text-left text-xs font-semibold text-muted-foreground uppercase">{h}</th>
+                    ))}</tr>
                   </thead>
                   <tbody className="divide-y divide-border">
-                    {projects.map(p => (
+                    {projectPerf.map(p => (
                       <tr key={p.id} className="hover:bg-muted/30 cursor-pointer" onClick={() => navigate(`/projects/${p.id}`)}>
                         <td className="px-4 py-3 font-medium text-foreground">{p.name}</td>
                         <td className="px-4 py-3"><StatusBadge status={p.status} /></td>
-                        <td className="px-4 py-3"><span className={`text-xs px-2 py-0.5 rounded-full font-medium capitalize ${p.health === 'on_track' ? 'bg-green-100 text-green-700' : p.health === 'at_risk' ? 'bg-amber-100 text-amber-700' : p.health === 'off_track' ? 'bg-red-100 text-red-700' : 'bg-indigo-100 text-indigo-700'}`}>{p.health?.replace('_',' ') || '—'}</span></td>
+                        <td className="px-4 py-3">
+                          <span className={`text-xs px-2 py-0.5 rounded-full font-medium capitalize ${p.health === 'on_track' ? 'bg-green-100 text-green-700' : p.health === 'at_risk' ? 'bg-amber-100 text-amber-700' : p.health === 'off_track' ? 'bg-red-100 text-red-700' : 'bg-indigo-100 text-indigo-700'}`}>
+                            {p.health?.replace('_', ' ') || '—'}
+                          </span>
+                        </td>
                         <td className="px-4 py-3">
                           <div className="flex items-center gap-2">
-                            <div className="h-1.5 w-16 bg-muted rounded-full overflow-hidden"><div className="h-full bg-primary rounded-full" style={{ width: `${p.completion_percentage || 0}%` }} /></div>
+                            <div className="h-1.5 w-16 bg-muted rounded-full overflow-hidden">
+                              <div className="h-full bg-primary rounded-full" style={{ width: `${p.completion_percentage || 0}%` }} />
+                            </div>
                             <span className="text-xs text-muted-foreground">{p.completion_percentage || 0}%</span>
                           </div>
                         </td>
-                        <td className="px-4 py-3 text-muted-foreground">{tasks.filter(t => t.project_id === p.id).length}</td>
+                        <td className="px-4 py-3 text-muted-foreground">{p.taskCount}</td>
+                        <td className="px-4 py-3 text-green-600 font-medium">{p.done}</td>
+                        <td className="px-4 py-3"><span className={p.overdue > 0 ? 'text-red-600 font-medium' : 'text-muted-foreground'}>{p.overdue}</span></td>
                         <td className="px-4 py-3 text-xs text-muted-foreground">{p.project_manager_email?.split('@')[0] || '—'}</td>
                       </tr>
                     ))}
+                    {projectPerf.length === 0 && <tr><td colSpan={8} className="px-4 py-8 text-center text-muted-foreground text-sm">No projects found</td></tr>}
                   </tbody>
                 </table>
               </div>
             </div>
           )}
 
-          {/* TEAM PERFORMANCE */}
+          {/* ── TEAM PERFORMANCE ── */}
           {activeReport === 'team_performance' && (
             <div className="space-y-6">
+              <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+                <div className="bg-card border border-border rounded-xl p-5">
+                  <h3 className="text-sm font-semibold text-foreground mb-4">Task Volume by Team</h3>
+                  <ResponsiveContainer width="100%" height={230}>
+                    <BarChart data={teamPerf}>
+                      <CartesianGrid strokeDasharray="3 3" stroke="hsl(var(--border))" />
+                      <XAxis dataKey="name" tick={{ fontSize: 10, fill: 'hsl(var(--muted-foreground))' }} />
+                      <YAxis tick={{ fontSize: 10, fill: 'hsl(var(--muted-foreground))' }} allowDecimals={false} />
+                      <Tooltip contentStyle={TOOLTIP_STYLE} />
+                      <Legend iconType="circle" iconSize={8} wrapperStyle={{ fontSize: 11 }} />
+                      <Bar dataKey="total" fill="#94a3b8" radius={[4,4,0,0]} name="Total" />
+                      <Bar dataKey="done" fill="#22c55e" radius={[4,4,0,0]} name="Done" />
+                      <Bar dataKey="inProgress" fill="#f59e0b" radius={[4,4,0,0]} name="In Progress" />
+                      <Bar dataKey="overdue" fill="#ef4444" radius={[4,4,0,0]} name="Overdue" />
+                    </BarChart>
+                  </ResponsiveContainer>
+                </div>
+                <div className="bg-card border border-border rounded-xl p-5">
+                  <h3 className="text-sm font-semibold text-foreground mb-4">Completion Rate by Team</h3>
+                  <div className="space-y-4 mt-2">
+                    {teamPerf.map(tm => {
+                      const rate = tm.total ? Math.round((tm.done / tm.total) * 100) : 0;
+                      return (
+                        <div key={tm.id}>
+                          <div className="flex items-center justify-between mb-1">
+                            <span className="text-sm font-medium text-foreground">{tm.name}</span>
+                            <span className="text-sm font-bold text-foreground">{rate}%</span>
+                          </div>
+                          <div className="h-2 bg-muted rounded-full overflow-hidden">
+                            <div className="h-full rounded-full transition-all" style={{ width: `${rate}%`, background: rate >= 70 ? '#22c55e' : rate >= 40 ? '#f59e0b' : '#ef4444' }} />
+                          </div>
+                          <div className="flex gap-3 mt-1 text-xs text-muted-foreground">
+                            <span>{tm.total} tasks</span>
+                            <span>{tm.done} done</span>
+                            {tm.overdue > 0 && <span className="text-red-500">{tm.overdue} overdue</span>}
+                          </div>
+                        </div>
+                      );
+                    })}
+                    {teamPerf.length === 0 && <p className="text-sm text-muted-foreground text-center py-8">No team data available</p>}
+                  </div>
+                </div>
+              </div>
+              <div className="bg-card border border-border rounded-xl overflow-hidden">
+                <table className="w-full text-sm">
+                  <thead className="bg-muted/50">
+                    <tr>{['Team', 'Projects', 'Total Tasks', 'Done', 'In Progress', 'Overdue', 'Rate'].map(h => (
+                      <th key={h} className="px-4 py-3 text-left text-xs font-semibold text-muted-foreground uppercase">{h}</th>
+                    ))}</tr>
+                  </thead>
+                  <tbody className="divide-y divide-border">
+                    {teamPerf.map(tm => {
+                      const rate = tm.total ? Math.round((tm.done / tm.total) * 100) : 0;
+                      return (
+                        <tr key={tm.id} className="hover:bg-muted/30 cursor-pointer" onClick={() => navigate(`/teams/${tm.id}`)}>
+                          <td className="px-4 py-3 font-medium text-foreground">{tm.name}</td>
+                          <td className="px-4 py-3 text-muted-foreground">{tm.projectCount}</td>
+                          <td className="px-4 py-3 text-muted-foreground">{tm.total}</td>
+                          <td className="px-4 py-3 text-green-600 font-medium">{tm.done}</td>
+                          <td className="px-4 py-3 text-amber-600">{tm.inProgress}</td>
+                          <td className="px-4 py-3"><span className={tm.overdue > 0 ? 'text-red-600 font-medium' : 'text-muted-foreground'}>{tm.overdue}</span></td>
+                          <td className="px-4 py-3">
+                            <div className="flex items-center gap-2">
+                              <div className="h-1.5 w-16 bg-muted rounded-full overflow-hidden">
+                                <div className="h-full rounded-full" style={{ width: `${rate}%`, background: rate >= 70 ? '#22c55e' : rate >= 40 ? '#f59e0b' : '#ef4444' }} />
+                              </div>
+                              <span className="text-xs font-medium">{rate}%</span>
+                            </div>
+                          </td>
+                        </tr>
+                      );
+                    })}
+                    {teamPerf.length === 0 && <tr><td colSpan={7} className="px-4 py-8 text-center text-muted-foreground text-sm">No team data available</td></tr>}
+                  </tbody>
+                </table>
+              </div>
+            </div>
+          )}
+
+          {/* ── USER PERFORMANCE ── */}
+          {activeReport === 'user_performance' && (
+            <div className="space-y-6">
               <div className="bg-card border border-border rounded-xl p-5">
-                <h3 className="text-sm font-semibold text-foreground mb-4">Team Task Volume</h3>
-                <ResponsiveContainer width="100%" height={200}>
-                  <BarChart data={teamPerf}>
+                <h3 className="text-sm font-semibold text-foreground mb-4">Task Load per User</h3>
+                <ResponsiveContainer width="100%" height={220}>
+                  <BarChart data={userPerf.slice(0, 15).map(u => ({ name: u.name, total: u.total, done: u.done, overdue: u.overdue }))}>
                     <CartesianGrid strokeDasharray="3 3" stroke="hsl(var(--border))" />
                     <XAxis dataKey="name" tick={{ fontSize: 10, fill: 'hsl(var(--muted-foreground))' }} />
                     <YAxis tick={{ fontSize: 10, fill: 'hsl(var(--muted-foreground))' }} allowDecimals={false} />
                     <Tooltip contentStyle={TOOLTIP_STYLE} />
-                    <Bar dataKey="total" fill="#3b82f6" radius={[4,4,0,0]} name="Total Tasks" />
-                    <Bar dataKey="done" fill="#10b981" radius={[4,4,0,0]} name="Done" />
+                    <Legend iconType="circle" iconSize={8} wrapperStyle={{ fontSize: 11 }} />
+                    <Bar dataKey="total" fill="#94a3b8" radius={[4,4,0,0]} name="Total" />
+                    <Bar dataKey="done" fill="#22c55e" radius={[4,4,0,0]} name="Done" />
                     <Bar dataKey="overdue" fill="#ef4444" radius={[4,4,0,0]} name="Overdue" />
-                    <Legend />
                   </BarChart>
                 </ResponsiveContainer>
               </div>
               <div className="bg-card border border-border rounded-xl overflow-hidden">
                 <table className="w-full text-sm">
-                  <thead className="bg-muted/50"><tr>{['Team','Total','Done','Overdue','SLA Rate'].map(h => <th key={h} className="px-4 py-3 text-left text-xs font-semibold text-muted-foreground uppercase">{h}</th>)}</tr></thead>
+                  <thead className="bg-muted/50">
+                    <tr>{['User', 'Total', 'Done', 'In Progress', 'Overdue', 'Done Rate', 'Avg Days'].map(h => (
+                      <th key={h} className="px-4 py-3 text-left text-xs font-semibold text-muted-foreground uppercase">{h}</th>
+                    ))}</tr>
+                  </thead>
                   <tbody className="divide-y divide-border">
-                    {teamPerf.map(tm => (
-                      <tr key={tm.id} className="hover:bg-muted/30 cursor-pointer" onClick={() => navigate(`/teams/${tm.id}`)}>
-                        <td className="px-4 py-3 font-medium text-foreground">{tm.name}</td>
-                        <td className="px-4 py-3 text-muted-foreground">{tm.total}</td>
-                        <td className="px-4 py-3 text-green-600 font-medium">{tm.done}</td>
-                        <td className="px-4 py-3"><span className={tm.overdue > 0 ? 'text-red-600 font-medium' : 'text-muted-foreground'}>{tm.overdue}</span></td>
+                    {userPerf.map(u => (
+                      <tr key={u.email} className="hover:bg-muted/30">
                         <td className="px-4 py-3">
                           <div className="flex items-center gap-2">
-                            <div className="h-1.5 w-16 bg-muted rounded-full overflow-hidden"><div className="h-full bg-green-500 rounded-full" style={{ width: `${tm.sla}%` }} /></div>
-                            <span className="text-xs font-medium">{tm.sla}%</span>
+                            <div className="w-7 h-7 rounded-full bg-primary/10 text-primary flex items-center justify-center text-xs font-bold shrink-0">
+                              {u.name?.charAt(0)?.toUpperCase()}
+                            </div>
+                            <div>
+                              <div className="font-medium text-foreground">{u.name}</div>
+                              <div className="text-xs text-muted-foreground">{u.email}</div>
+                            </div>
                           </div>
                         </td>
+                        <td className="px-4 py-3 text-muted-foreground">{u.total}</td>
+                        <td className="px-4 py-3 text-green-600 font-medium">{u.done}</td>
+                        <td className="px-4 py-3 text-amber-600">{u.inProgress}</td>
+                        <td className="px-4 py-3"><span className={u.overdue > 0 ? 'text-red-600 font-medium' : 'text-muted-foreground'}>{u.overdue}</span></td>
+                        <td className="px-4 py-3">
+                          <div className="flex items-center gap-2">
+                            <div className="h-1.5 w-16 bg-muted rounded-full overflow-hidden">
+                              <div className="h-full rounded-full" style={{ width: `${u.rate}%`, background: u.rate >= 70 ? '#22c55e' : u.rate >= 40 ? '#f59e0b' : '#ef4444' }} />
+                            </div>
+                            <span className="text-xs font-medium">{u.rate}%</span>
+                          </div>
+                        </td>
+                        <td className="px-4 py-3 text-muted-foreground">{u.avgDays !== null ? `${u.avgDays}d` : '—'}</td>
                       </tr>
                     ))}
+                    {userPerf.length === 0 && <tr><td colSpan={7} className="px-4 py-8 text-center text-muted-foreground text-sm">No user data available</td></tr>}
                   </tbody>
                 </table>
               </div>
             </div>
           )}
 
-          {/* USER PERFORMANCE */}
-          {activeReport === 'user_performance' && (
-            <div className="bg-card border border-border rounded-xl overflow-hidden">
-              <table className="w-full text-sm">
-                <thead className="bg-muted/50"><tr>{['User','Total Tasks','Completed','Overdue','SLA Rate','Avg Days'].map(h => <th key={h} className="px-4 py-3 text-left text-xs font-semibold text-muted-foreground uppercase">{h}</th>)}</tr></thead>
-                <tbody className="divide-y divide-border">
-                  {userPerf.map(u => (
-                    <tr key={u.email} className="hover:bg-muted/30 cursor-pointer" onClick={() => navigate(`/tasks?assignee=${u.email}`)}>
-                      <td className="px-4 py-3">
-                        <div className="flex items-center gap-2">
-                          <div className="w-7 h-7 rounded-full bg-primary/10 text-primary flex items-center justify-center text-xs font-bold">{u.name?.charAt(0)?.toUpperCase()}</div>
-                          <span className="font-medium text-foreground">{u.name}</span>
-                        </div>
-                      </td>
-                      <td className="px-4 py-3 text-muted-foreground">{u.total}</td>
-                      <td className="px-4 py-3 text-green-600 font-medium">{u.done}</td>
-                      <td className="px-4 py-3"><span className={u.overdue > 0 ? 'text-red-600 font-medium' : 'text-muted-foreground'}>{u.overdue}</span></td>
-                      <td className="px-4 py-3">
-                        <div className="flex items-center gap-2">
-                          <div className="h-1.5 w-16 bg-muted rounded-full overflow-hidden"><div className="h-full bg-green-500 rounded-full" style={{ width: `${u.sla}%` }} /></div>
-                          <span className="text-xs font-medium">{u.sla}%</span>
-                        </div>
-                      </td>
-                      <td className="px-4 py-3 text-muted-foreground">{u.avg}d</td>
-                    </tr>
-                  ))}
-                </tbody>
-              </table>
-            </div>
-          )}
-
-          {/* SLA COMPLIANCE */}
-          {activeReport === 'sla_compliance' && (
-            <div className="space-y-6">
-              <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
-                {(() => { const s = computeSLAMetrics(filteredTasks); return [
-                  { label: 'SLA Rate', value: `${s.rate}%`, color: s.rate >= 80 ? 'text-green-600' : s.rate >= 60 ? 'text-amber-600' : 'text-red-600' },
-                  { label: 'On Time', value: s.onTime, color: 'text-green-600' },
-                  { label: 'Late', value: s.late, color: 'text-red-600' },
-                  { label: 'Total Tracked', value: s.total, color: 'text-foreground' },
-                ]; })().map(k => (
-                  <div key={k.label} className="bg-card border border-border rounded-xl p-4 text-center">
-                    <div className={`text-3xl font-bold ${k.color}`}>{k.value}</div>
-                    <div className="text-xs text-muted-foreground mt-1">{k.label}</div>
-                  </div>
-                ))}
-              </div>
-              <div className="bg-card border border-border rounded-xl p-5">
-                <h3 className="text-sm font-semibold text-foreground mb-4">SLA by Project</h3>
-                <ResponsiveContainer width="100%" height={220}>
-                  <BarChart data={projectSLA.slice(0, 12)}>
-                    <CartesianGrid strokeDasharray="3 3" stroke="hsl(var(--border))" />
-                    <XAxis dataKey="name" tick={{ fontSize: 9, fill: 'hsl(var(--muted-foreground))' }} />
-                    <YAxis tick={{ fontSize: 10, fill: 'hsl(var(--muted-foreground))' }} unit="%" domain={[0,100]} />
-                    <Tooltip contentStyle={TOOLTIP_STYLE} formatter={v => [`${v}%`, 'On-Time Rate']} />
-                    <Bar dataKey="rate" radius={[4,4,0,0]} name="SLA Rate">
-                      {projectSLA.slice(0,12).map((d, i) => <Cell key={i} fill={d.rate >= 80 ? '#22c55e' : d.rate >= 60 ? '#f59e0b' : '#ef4444'} />)}
-                    </Bar>
-                  </BarChart>
-                </ResponsiveContainer>
-              </div>
-              <div className="bg-card border border-border rounded-xl overflow-hidden">
-                <table className="w-full text-sm">
-                  <thead className="bg-muted/50"><tr>{['Project','Total','On Time','Late','SLA Rate','Overdue'].map(h => <th key={h} className="px-4 py-3 text-left text-xs font-semibold text-muted-foreground uppercase">{h}</th>)}</tr></thead>
-                  <tbody className="divide-y divide-border">
-                    {projectSLA.map(p => (
-                      <tr key={p.id} className="hover:bg-muted/30 cursor-pointer" onClick={() => navigate(`/projects/${p.id}`)}>
-                        <td className="px-4 py-3 font-medium text-foreground">{p.name}</td>
-                        <td className="px-4 py-3 text-muted-foreground">{p.total}</td>
-                        <td className="px-4 py-3 text-green-600">{p.onTime}</td>
-                        <td className="px-4 py-3 text-red-600">{p.late}</td>
-                        <td className="px-4 py-3"><span className={`font-bold ${p.rate >= 80 ? 'text-green-600' : p.rate >= 60 ? 'text-amber-600' : 'text-red-600'}`}>{p.rate}%</span></td>
-                        <td className="px-4 py-3"><span className={p.overdue > 0 ? 'text-red-600 font-medium' : 'text-muted-foreground'}>{p.overdue}</span></td>
-                      </tr>
-                    ))}
-                  </tbody>
-                </table>
-              </div>
-            </div>
-          )}
-
-          {/* WORKLOAD */}
+          {/* ── WORKLOAD ── */}
           {activeReport === 'workload' && (
             <div className="space-y-6">
               <div className="bg-card border border-border rounded-xl p-5">
-                <h3 className="text-sm font-semibold text-foreground mb-4">Open Tasks per Assignee</h3>
+                <h3 className="text-sm font-semibold text-foreground mb-1">Open Tasks per Assignee</h3>
+                <p className="text-xs text-muted-foreground mb-4">Excludes done and cancelled tasks</p>
                 <ResponsiveContainer width="100%" height={260}>
                   <BarChart data={workload}>
                     <CartesianGrid strokeDasharray="3 3" stroke="hsl(var(--border))" />
                     <XAxis dataKey="name" tick={{ fontSize: 10, fill: 'hsl(var(--muted-foreground))' }} />
                     <YAxis tick={{ fontSize: 10, fill: 'hsl(var(--muted-foreground))' }} allowDecimals={false} />
                     <Tooltip contentStyle={TOOLTIP_STYLE} />
-                    <Bar dataKey="count" radius={[4,4,0,0]} name="Open Tasks"
-                      onClick={d => navigate(`/tasks?assignee=${d.email}`)} style={{ cursor: 'pointer' }}>
-                      {workload.map((d, i) => <Cell key={i} fill={d.count > 10 ? '#ef4444' : d.count > 6 ? '#f59e0b' : '#22c55e'} />)}
+                    <Bar dataKey="count" radius={[4,4,0,0]} name="Open Tasks">
+                      {workload.map((d, i) => <Cell key={i} fill={d.count > 10 ? '#ef4444' : d.count > 5 ? '#f59e0b' : '#22c55e'} />)}
                     </Bar>
                   </BarChart>
                 </ResponsiveContainer>
               </div>
               <div className="bg-card border border-border rounded-xl overflow-hidden">
                 <table className="w-full text-sm">
-                  <thead className="bg-muted/50"><tr>{['Assignee','Open Tasks','Load Level'].map(h => <th key={h} className="px-4 py-3 text-left text-xs font-semibold text-muted-foreground uppercase">{h}</th>)}</tr></thead>
+                  <thead className="bg-muted/50">
+                    <tr>{['Assignee', 'Email', 'Open Tasks', 'Critical', 'High', 'Load Level'].map(h => (
+                      <th key={h} className="px-4 py-3 text-left text-xs font-semibold text-muted-foreground uppercase">{h}</th>
+                    ))}</tr>
+                  </thead>
                   <tbody className="divide-y divide-border">
                     {workload.map(u => (
-                      <tr key={u.email} className="hover:bg-muted/30 cursor-pointer" onClick={() => navigate(`/tasks?assignee=${u.email}`)}>
+                      <tr key={u.email} className="hover:bg-muted/30">
                         <td className="px-4 py-3 font-medium text-foreground">{u.name}</td>
-                        <td className="px-4 py-3"><span className={`font-bold ${u.count > 10 ? 'text-red-600' : u.count > 6 ? 'text-amber-600' : 'text-green-600'}`}>{u.count}</span></td>
+                        <td className="px-4 py-3 text-xs text-muted-foreground">{u.email}</td>
+                        <td className="px-4 py-3"><span className={`font-bold ${u.count > 10 ? 'text-red-600' : u.count > 5 ? 'text-amber-600' : 'text-green-600'}`}>{u.count}</span></td>
+                        <td className="px-4 py-3"><span className={u.critical > 0 ? 'text-red-600 font-medium' : 'text-muted-foreground'}>{u.critical}</span></td>
+                        <td className="px-4 py-3"><span className={u.high > 0 ? 'text-orange-500' : 'text-muted-foreground'}>{u.high}</span></td>
                         <td className="px-4 py-3">
-                          <span className={`text-xs px-2.5 py-1 rounded-full font-medium ${u.count > 10 ? 'bg-red-100 text-red-700' : u.count > 6 ? 'bg-amber-100 text-amber-700' : 'bg-green-100 text-green-700'}`}>
-                            {u.count > 10 ? 'Overloaded' : u.count > 6 ? 'High' : 'Normal'}
+                          <span className={`text-xs px-2.5 py-1 rounded-full font-medium ${u.count > 10 ? 'bg-red-100 text-red-700' : u.count > 5 ? 'bg-amber-100 text-amber-700' : 'bg-green-100 text-green-700'}`}>
+                            {u.count > 10 ? 'Overloaded' : u.count > 5 ? 'High' : 'Normal'}
                           </span>
                         </td>
                       </tr>
                     ))}
+                    {workload.length === 0 && <tr><td colSpan={6} className="px-4 py-8 text-center text-muted-foreground text-sm">No open tasks assigned to anyone</td></tr>}
                   </tbody>
                 </table>
               </div>
-            </div>
-          )}
-
-          {/* TASK HISTORY */}
-          {activeReport === 'task_history' && (
-            <div className="bg-card border border-border rounded-xl overflow-hidden">
-              <table className="w-full text-sm">
-                <thead className="bg-muted/50"><tr>{['Task','Field','From','To','Changed By','When'].map(h => <th key={h} className="px-4 py-3 text-left text-xs font-semibold text-muted-foreground uppercase">{h}</th>)}</tr></thead>
-                <tbody className="divide-y divide-border">
-                  {history.slice(0, 100).map(h => (
-                    <tr key={h.id} className="hover:bg-muted/30 cursor-pointer" onClick={() => h.task_id && navigate(`/tasks/${h.task_id}`)}>
-                      <td className="px-4 py-3 text-xs text-muted-foreground font-mono">{h.task_id?.slice(-8)}</td>
-                      <td className="px-4 py-3 font-medium text-foreground">{h.field_name}</td>
-                      <td className="px-4 py-3 text-xs text-muted-foreground">{h.old_value || '—'}</td>
-                      <td className="px-4 py-3 text-xs text-foreground font-medium">{h.new_value || '—'}</td>
-                      <td className="px-4 py-3 text-xs text-muted-foreground">{h.changed_by_email?.split('@')[0]}</td>
-                      <td className="px-4 py-3 text-xs text-muted-foreground">{h.created_date ? format(new Date(h.created_date), 'MMM d, HH:mm') : '—'}</td>
-                    </tr>
-                  ))}
-                  {history.length === 0 && <tr><td colSpan={6} className="px-4 py-8 text-center text-muted-foreground text-sm">No history records</td></tr>}
-                </tbody>
-              </table>
             </div>
           )}
         </>
