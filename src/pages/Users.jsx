@@ -20,7 +20,7 @@ export default function Users() {
   const [search, setSearch] = useState('');
   const [roleFilter, setRoleFilter] = useState('');
 
-  useEffect(() => { base44.entities.User.list('-created_date', 200).then(setUsers).catch(() => {}); }, []);
+  useEffect(() => { base44.entities.User.list('-created_date', 200).catch(() => []).then(setUsers); }, []);
 
   const filtered = users.filter(u => {
     const matchSearch = !search || u.full_name?.toLowerCase().includes(search.toLowerCase()) || u.email?.toLowerCase().includes(search.toLowerCase());

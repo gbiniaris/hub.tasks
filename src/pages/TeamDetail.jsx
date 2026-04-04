@@ -132,7 +132,7 @@ function AddMemberModal({ teamId, onClose, onSave }) {
   const [saving, setSaving] = useState(false);
   const inputCls = "w-full text-sm border border-border rounded-lg px-3 py-2 bg-background focus:outline-none focus:ring-2 focus:ring-ring";
 
-  useEffect(() => { base44.entities.User.list().then(setUsers); }, []);
+  useEffect(() => { base44.entities.User.list().catch(() => []).then(setUsers); }, []);
 
   const submit = async () => {
     if (!form.user_email) return;
