@@ -17,7 +17,7 @@ export default function TaskFilters({ filters, onChange }) {
     Promise.all([
       base44.entities.Project.list('-updated_date', 100),
       base44.entities.Team.list('-updated_date', 50),
-      base44.entities.User.list('-updated_date', 100),
+      base44.entities.User.list('-updated_date', 100).catch(() => []),
     ]).then(([p, te, u]) => { setProjects(p); setTeams(te); setUsers(u); }).catch(() => {});
   }, []);
 

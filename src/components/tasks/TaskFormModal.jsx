@@ -25,7 +25,7 @@ export default function TaskFormModal({ task, projectId, onClose, onSave }) {
   useEffect(() => {
     Promise.all([
       base44.entities.Project.list('-updated_date', 100),
-      base44.entities.User.list('-updated_date', 100),
+      base44.entities.User.list('-updated_date', 100).catch(() => []),
       base44.entities.TaskCategory.filter({ is_active: true }),
       base44.entities.TaskType.filter({ is_active: true }),
       base44.entities.Task.list('-updated_date', 200),
